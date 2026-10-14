@@ -147,7 +147,7 @@ const provisionStaff = async (
 		});
 
 		await sendMail({
-			to: personalEmail, 
+			to: personalEmail,
 			subject: "Your Nagar Sheba Account",
 			html,
 		});

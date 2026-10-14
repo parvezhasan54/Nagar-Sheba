@@ -232,7 +232,7 @@ const verifyRegistrationEmail = async (payload: IRegistrationVerifyPayload) => {
 		});
 
 		await sendMail({
-			to: createdUser.email, 
+			to: createdUser.email,
 			subject: "Welcome to Nagar Sheba",
 			html,
 		});
@@ -578,7 +578,7 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
 	const html = await ejs.renderFile(templatePath, { otp });
 
 	await sendMail({
-		to: email,  
+		to: email,
 		subject: "Forgot Password",
 		html,
 	});
@@ -640,7 +640,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 		const html = await ejs.renderFile(templatePath);
 
 		await sendMail({
-			to: email,  
+			to: email,
 			subject: "Password Changed Successfully",
 			html,
 		});
@@ -715,10 +715,16 @@ const updateMyProfile = async (
 
 	switch (currentUser.role) {
 		case Role.CITIZEN:
-			await prisma.citizenProfile.update({
+			await prisma.citizenProfile.upsert({
 				where: { userId: user.userId },
-				data: {
+				update: {
 					fullName: payload.fullName,
+					phone: payload.phone,
+					address: payload.address,
+				},
+				create: {
+					userId: user.userId,
+					fullName: payload.fullName ?? "Citizen",
 					phone: payload.phone,
 					address: payload.address,
 				},

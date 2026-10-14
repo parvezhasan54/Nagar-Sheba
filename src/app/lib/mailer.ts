@@ -32,7 +32,6 @@
 // 	return data;
 // };
 
-
 import httpStatus from "http-status";
 import config from "../config";
 import { AppError } from "../errors/AppError";
@@ -48,10 +47,7 @@ type TMailPayload = {
 const EMAILJS_URL = "https://api.emailjs.com/api/v1.0/email/send";
 
 const escapeHtml = (s: string) =>
-	s
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
+	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const sendOne = async (to: string, mail: TMailPayload) => {
 	const html =

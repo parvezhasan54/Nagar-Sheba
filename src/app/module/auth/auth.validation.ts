@@ -120,29 +120,12 @@ const ProfileImageZodSchema = z.object({
 
 const UpdateProfileZodSchema = z
 	.object({
-		fullName: z
-			.string("Full name must be a string")
-			.min(2, "Full name must be at least 2 characters long")
-			.max(100, "Full name must not exceed 100 characters")
-			.optional(),
-
-		phone: z
-			.string("Phone number must be a string")
-			.min(10, "Phone number must be at least 10 characters long")
-			.max(20, "Phone number must not exceed 20 characters")
-			.optional(),
-
-		address: z
-			.string("Address must be a string")
-			.max(255, "Address must not exceed 255 characters")
-			.optional(),
-
-		title: z
-			.string("Title must be a string")
-			.max(100, "Title must not exceed 100 characters")
-			.optional(),
+		fullName: z.string().trim().min(2).max(100).optional(),
+		phone: z.string().trim().max(20).optional(), // removed .min(10)
+		address: z.string().trim().max(255).optional(),
+		title: z.string().trim().max(100).optional(),
 	})
-	.refine((data) => Object.keys(data).length > 0, {
+	.refine((d) => Object.keys(d).length > 0, {
 		message: "At least one field must be provided to update.",
 	});
 

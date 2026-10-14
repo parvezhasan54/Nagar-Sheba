@@ -37,7 +37,7 @@ export default {
 	// 	from: process.env.EMAIL_FROM!,
 	// 	contact_to: process.env.CONTACT_RECEIVER_EMAIL!,
 	// },
-		emailjs: {
+	emailjs: {
 		service_id: process.env.EMAILJS_SERVICE_ID!,
 		template_id: process.env.EMAILJS_TEMPLATE_ID!,
 		public_key: process.env.EMAILJS_PUBLIC_KEY!,
