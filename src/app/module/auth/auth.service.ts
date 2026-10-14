@@ -714,6 +714,7 @@ const updateMyProfile = async (
 	}
 
 	switch (currentUser.role) {
+		
 		case Role.CITIZEN:
 			await prisma.citizenProfile.upsert({
 				where: { userId: user.userId },
