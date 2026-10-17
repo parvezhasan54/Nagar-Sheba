@@ -178,25 +178,31 @@ export const seed = async (): Promise<void> => {
 			}
 
 			await tx.category.upsert({
-				where: {
-					departmentId_name: {
-						departmentId,
-						name: category.name,
-					},
-				},
-				update: {
-					feeType: category.feeType,
-					feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
-					slaHours: category.slaHours,
-				},
-				create: {
-					departmentId,
-					name: category.name,
-					feeType: category.feeType,
-					feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
-					slaHours: category.slaHours,
-				},
-			});
+	where: {
+		departmentId_name: {
+			departmentId,
+			name: category.name,
+		},
+	},
+	update: {
+		description: category.description,
+		// only overwrite images when the seed has some,
+		// so re-seeding never wipes images an admin added
+		...(category.images.length > 0 ? { images: category.images } : {}),
+		feeType: category.feeType,
+		feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
+		slaHours: category.slaHours,
+	},
+	create: {
+		departmentId,
+		name: category.name,
+		description: category.description,
+		images: category.images,
+		feeType: category.feeType,
+		feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
+		slaHours: category.slaHours,
+	},
+});
 		}
 
 		// 3. Admin
