@@ -10,7 +10,7 @@ const router = Router();
 // anyone can show
 router.get("/", optionalAuth, CategoryController.getAllCategories);
 router.get("/:id", optionalAuth, CategoryController.getSingleCategory);
-
+router.get("/:id/reviews", CategoryController.getCategoryReviews);
 // Admin only Write values
 router.post(
 	"/",

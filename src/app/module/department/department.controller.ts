@@ -26,7 +26,13 @@ const getAllDepartments = catchAsync(async (req: Request, res: Response) => {
 		{
 			page: Number(req.query.page),
 			limit: Number(req.query.limit),
-			includeInactive: req.query.includeInactive === "true",
+						includeInactive: req.query.includeInactive === "true",
+			search: req.query.search as string | undefined,
+			status:
+				req.query.status === "active" || req.query.status === "deleted"
+					? req.query.status
+					: undefined,
+			
 		},
 		user?.role,
 	);

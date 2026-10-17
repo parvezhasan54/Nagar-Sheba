@@ -953,6 +953,58 @@ const getStaffPerformance = async (staffId: string) => {
 		byStatus,
 	};
 };
+
+const getCitizenSummary = async (citizenId: string) => {
+	const where = { citizenId, deletedAt: null };
+	const now = new Date();
+	const since = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+	const [grouped, recent, spent] = await Promise.all([
+		prisma.serviceRequest.groupBy({
+			by: ["status"],
+			_count: { _all: true },
+			where,
+		}),
+		prisma.serviceRequest.findMany({
+			where: { ...where, createdAt: { gte: since } },
+			select: { createdAt: true },
+		}),
+		prisma.payment.aggregate({
+			_sum: { amount: true },
+			where: { status: "COMPLETED", request: { citizenId } },
+		}),
+	]);
+
+	const byStatus = grouped.reduce(
+		(acc, row) => {
+			acc[row.status] = row._count._all;
+			return acc;
+		},
+		{} as Record<string, number>,
+	);
+
+	const months = Array.from({ length: 6 }, (_, i) => {
+		const d = new Date(since.getFullYear(), since.getMonth() + i, 1);
+		return {
+			key: `${d.getFullYear()}-${d.getMonth()}`,
+			label: d.toLocaleString("en-GB", { month: "short" }),
+			total: 0,
+		};
+	});
+	for (const r of recent) {
+		const key = `${r.createdAt.getFullYear()}-${r.createdAt.getMonth()}`;
+		const month = months.find((m) => m.key === key);
+		if (month) month.total++;
+	}
+
+	return {
+		total: Object.values(byStatus).reduce((a, b) => a + b, 0),
+		byStatus,
+		byMonth: months.map(({ label, total }) => ({ label, total })),
+		totalSpent: spent._sum.amount ?? 0,
+	};
+};
+
 export const RequestService = {
 	createServiceRequest,
 	getAllServiceRequests,
@@ -964,4 +1016,5 @@ export const RequestService = {
 	reopenRequest,
 	addAttachmentsToRequest,
 	getStaffPerformance,
+	getCitizenSummary
 };

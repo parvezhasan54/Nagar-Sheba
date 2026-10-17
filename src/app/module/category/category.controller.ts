@@ -102,10 +102,25 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
+const getCategoryReviews = catchAsync(async (req: Request, res: Response) => {
+	const result = await CategoryService.getCategoryReviews(
+		req.params.id as string,
+		{ page: Number(req.query.page), limit: Number(req.query.limit) },
+	);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Category reviews fetched successfully",
+		data: result,
+	});
+});
+
 export const CategoryController = {
 	createCategory,
 	getAllCategories,
 	getSingleCategory,
+	getCategoryReviews,
 	updateCategory,
 	deleteCategory,
 };

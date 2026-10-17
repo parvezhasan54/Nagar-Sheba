@@ -24,6 +24,13 @@ router.get(
 	auth(Role.STAFF),
 	RequestController.getStaffPerformance,
 );
+
+router.get(
+	"/summary/me",
+	auth(Role.CITIZEN),
+	RequestController.getCitizenSummary,
+);
+
 router.get("/:id", auth(), RequestController.getSingleServiceRequest);
 
 router.post(

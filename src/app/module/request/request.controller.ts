@@ -193,6 +193,18 @@ const getStaffPerformance = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
+const getCitizenSummary = catchAsync(async (req: Request, res: Response) => {
+	const user = req.user as IRequestUser;
+	const result = await RequestService.getCitizenSummary(user.userId);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Summary fetched successfully",
+		data: result,
+	});
+});
+
 export const RequestController = {
 	createServiceRequest,
 	getAllServiceRequests,
@@ -204,4 +216,5 @@ export const RequestController = {
 	reopenRequest,
 	addAttachments,
 	getStaffPerformance,
+	getCitizenSummary
 };

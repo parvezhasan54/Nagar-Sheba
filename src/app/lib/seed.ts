@@ -109,6 +109,90 @@ const CATEGORIES: CategorySeed[] = [
 		feeAmount: 500,
 		slaHours: 96,
 	},
+	{
+		department: "Roads & Infrastructure",
+		name: "Broken Footpath",
+		description:
+			"Report cracked, uneven or collapsed footpaths that are unsafe for pedestrians.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 96,
+	},
+	{
+		department: "Roads & Infrastructure",
+		name: "Damaged Traffic Signal",
+		description:
+			"Report traffic signals that are not working or show the wrong sequence at a junction.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 24,
+	},
+	{
+		department: "Waste Management",
+		name: "Illegal Dumping",
+		description:
+			"Report waste dumped in public places so a clean-up crew can remove it.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 48,
+	},
+	{
+		department: "Waste Management",
+		name: "Dead Animal Removal",
+		description:
+			"Request prompt removal of dead animals from roads and public spaces.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 12,
+	},
+	{
+		department: "Water Supply",
+		name: "Drain Blockage",
+		description:
+			"Report blocked drains that cause waterlogging in your street or neighbourhood.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 48,
+	},
+	{
+		department: "Water Supply",
+		name: "Sewage Overflow",
+		description:
+			"Report overflowing sewage lines that create a health hazard in public areas.",
+		images: [],
+		feeType: "FREE",
+		slaHours: 24,
+	},
+	{
+		department: "Licensing & Permits",
+		name: "Signboard Permit",
+		description:
+			"Apply for approval to install a business signboard on or near a public road.",
+		images: [],
+		feeType: "PAID",
+		feeAmount: 1200,
+		slaHours: 120,
+	},
+	{
+		department: "Licensing & Permits",
+		name: "Street Vending Permit",
+		description:
+			"Apply for a permit to operate a vending stall in an approved public location.",
+		images: [],
+		feeType: "PAID",
+		feeAmount: 600,
+		slaHours: 96,
+	},
+	{
+		department: "Licensing & Permits",
+		name: "Road Cutting Permit",
+		description:
+			"Request permission to cut a public road for utility or construction work.",
+		images: [],
+		feeType: "PAID",
+		feeAmount: 2500,
+		slaHours: 168,
+	},
 ];
 
 // Staff
@@ -178,31 +262,31 @@ export const seed = async (): Promise<void> => {
 			}
 
 			await tx.category.upsert({
-	where: {
-		departmentId_name: {
-			departmentId,
-			name: category.name,
-		},
-	},
-	update: {
-		description: category.description,
-		// only overwrite images when the seed has some,
-		// so re-seeding never wipes images an admin added
-		...(category.images.length > 0 ? { images: category.images } : {}),
-		feeType: category.feeType,
-		feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
-		slaHours: category.slaHours,
-	},
-	create: {
-		departmentId,
-		name: category.name,
-		description: category.description,
-		images: category.images,
-		feeType: category.feeType,
-		feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
-		slaHours: category.slaHours,
-	},
-});
+				where: {
+					departmentId_name: {
+						departmentId,
+						name: category.name,
+					},
+				},
+				update: {
+					description: category.description,
+					// only overwrite images when the seed has some,
+					// so re-seeding never wipes images an admin added
+					...(category.images.length > 0 ? { images: category.images } : {}),
+					feeType: category.feeType,
+					feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
+					slaHours: category.slaHours,
+				},
+				create: {
+					departmentId,
+					name: category.name,
+					description: category.description,
+					images: category.images,
+					feeType: category.feeType,
+					feeAmount: category.feeType === "PAID" ? category.feeAmount : null,
+					slaHours: category.slaHours,
+				},
+			});
 		}
 
 		// 3. Admin

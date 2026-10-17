@@ -8,6 +8,7 @@ import {
 	IDepartmentQuery,
 	IUpdateDepartmentPayload,
 } from "./department.interface";
+import { Prisma } from "../../../generated/prisma/client";
 
 // create a new dept
 const createDepartment = async (
@@ -62,7 +63,16 @@ const getAllDepartments = async (
 	const includeInactive =
 		requesterRole === Role.ADMIN && !!query.includeInactive;
 
-	const where = includeInactive ? {} : { deletedAt: null };
+	const search = query.search?.trim();
+
+	const where: Prisma.DepartmentWhereInput = {
+		...(!includeInactive || query.status === "active"
+			? { deletedAt: null }
+			: query.status === "deleted"
+				? { deletedAt: { not: null } }
+				: {}),
+		...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+	};
 
 	const [departments, total] = await Promise.all([
 		prisma.department.findMany({

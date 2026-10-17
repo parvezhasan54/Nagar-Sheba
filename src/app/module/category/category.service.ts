@@ -264,10 +264,76 @@ const deleteCategory = async (id: string, actor: IRequestUser) => {
 	return deleted;
 };
 
+const getCategoryReviews = async (
+	id: string,
+	query: { page?: number; limit?: number },
+) => {
+	const category = await prisma.category.findUnique({
+		where: { id },
+		select: { id: true, deletedAt: true },
+	});
+
+	if (!category || category.deletedAt) {
+		throw new AppError(httpStatus.NOT_FOUND, "Category not found");
+	}
+
+	const page = Number(query.page) > 0 ? Number(query.page) : 1;
+	const limit = Math.min(Number(query.limit) > 0 ? Number(query.limit) : 6, 50);
+	const skip = (page - 1) * limit;
+
+	const where: Prisma.FeedbackWhereInput = { request: { categoryId: id } };
+
+	const [items, total, avg, groups] = await Promise.all([
+		prisma.feedback.findMany({
+			where,
+			skip,
+			take: limit,
+			orderBy: { createdAt: "desc" },
+			select: {
+				id: true,
+				rating: true,
+				comment: true,
+				createdAt: true,
+				citizen: {
+					select: { citizenProfile: { select: { fullName: true } } },
+				},
+			},
+		}),
+		prisma.feedback.count({ where }),
+		prisma.feedback.aggregate({ where, _avg: { rating: true } }),
+		prisma.feedback.groupBy({
+			by: ["rating"],
+			where,
+			_count: { _all: true },
+		}),
+	]);
+
+	const distribution: Record<string, number> = {
+		"1": 0,
+		"2": 0,
+		"3": 0,
+		"4": 0,
+		"5": 0,
+	};
+	for (const g of groups) distribution[String(g.rating)] = g._count._all;
+
+	return {
+		summary: { average: avg._avg.rating ?? null, total, distribution },
+		reviews: items.map((f) => ({
+			id: f.id,
+			rating: f.rating,
+			comment: f.comment,
+			createdAt: f.createdAt,
+			// first name only, so public pages never expose full names
+			reviewer: f.citizen.citizenProfile?.fullName?.split(" ")[0] ?? "Citizen",
+		})),
+	};
+};
 export const CategoryService = {
 	createCategory,
 	getAllCategories,
 	getSingleCategory,
 	updateCategory,
 	deleteCategory,
+	getCategoryReviews
 };

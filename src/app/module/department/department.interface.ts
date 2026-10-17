@@ -12,4 +12,6 @@ export interface IDepartmentQuery {
 	page?: number;
 	limit?: number;
 	includeInactive?: boolean;
+	search?: string;
+	status?: "active" | "deleted";
 }
