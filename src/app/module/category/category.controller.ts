@@ -30,6 +30,14 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
 			limit: Number(req.query.limit),
 			departmentId: req.query.departmentId as string | undefined,
 			includeInactive: req.query.includeInactive === "true",
+			search: req.query.search as string | undefined,
+			feeType:
+				req.query.feeType === "FREE" || req.query.feeType === "PAID"
+					? req.query.feeType
+					: undefined,
+			maxSla: req.query.maxSla ? Number(req.query.maxSla) : undefined,
+			sortBy: req.query.sortBy as string | undefined,
+			sortOrder: req.query.sortOrder as "asc" | "desc" | undefined,
 		},
 		user?.role,
 	);

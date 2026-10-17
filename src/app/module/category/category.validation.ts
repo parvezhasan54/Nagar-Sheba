@@ -3,7 +3,6 @@ import * as z from "zod";
 const FeeTypeEnum = z.enum(["FREE", "PAID"], "feeType must be FREE or PAID");
 
 // CREATE CATEGORY
-
 const CreateCategoryZodSchema = z
 	.object({
 		departmentId: z.uuid("departmentId must be a valid UUID"),
@@ -12,6 +11,16 @@ const CreateCategoryZodSchema = z
 			.string("Category name is required")
 			.min(2, "Category name must be at least 2 characters long")
 			.max(100, "Category name must not exceed 100 characters"),
+
+		description: z
+			.string("Description must be a string")
+			.max(500, "Description must not exceed 500 characters")
+			.optional(),
+
+		images: z
+			.array(z.url("Each image must be a valid URL"))
+			.max(5, "At most 5 images are allowed")
+			.optional(),
 
 		feeType: FeeTypeEnum,
 
@@ -41,12 +50,23 @@ const CreateCategoryZodSchema = z
 		},
 	);
 
+// UPDATE CATEGORY
 const UpdateCategoryZodSchema = z
 	.object({
 		name: z
 			.string("Category name must be a string")
 			.min(2, "Category name must be at least 2 characters long")
 			.max(100, "Category name must not exceed 100 characters")
+			.optional(),
+
+		description: z
+			.string("Description must be a string")
+			.max(500, "Description must not exceed 500 characters")
+			.optional(),
+
+		images: z
+			.array(z.url("Each image must be a valid URL"))
+			.max(5, "At most 5 images are allowed")
 			.optional(),
 
 		feeType: FeeTypeEnum.optional(),

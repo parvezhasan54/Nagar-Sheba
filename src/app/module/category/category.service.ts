@@ -1,4 +1,5 @@
 import httpStatus from "http-status";
+import { Prisma } from "../../../generated/prisma/client";
 import { Role } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
@@ -43,6 +44,8 @@ const createCategory = async (
 			data: {
 				departmentId: payload.departmentId,
 				name: payload.name,
+				description: payload.description,
+				images: payload.images ?? [],
 				feeType: payload.feeType,
 				feeAmount: payload.feeType === "PAID" ? payload.feeAmount : null,
 				slaHours: payload.slaHours,
@@ -72,28 +75,60 @@ const createCategory = async (
 
 // GET ALL CATEGORIES (paginated, filterable by department)
 
+const ALLOWED_SORT_FIELDS = ["createdAt", "name", "slaHours", "feeAmount"];
+
 const getAllCategories = async (
 	query: ICategoryQuery,
 	requesterRole?: Role,
 ) => {
 	const page = Number(query.page) > 0 ? Number(query.page) : 1;
-	const limit = Number(query.limit) > 0 ? Number(query.limit) : 10;
+	const limit = Math.min(
+		Number(query.limit) > 0 ? Number(query.limit) : 10,
+		100,
+	);
 	const skip = (page - 1) * limit;
 
 	const includeInactive =
 		requesterRole === Role.ADMIN && !!query.includeInactive;
 
-	const where = {
+	const sortBy = ALLOWED_SORT_FIELDS.includes(query.sortBy as string)
+		? (query.sortBy as string)
+		: "createdAt";
+	const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+
+	const search = query.search?.trim();
+
+	const where: Prisma.CategoryWhereInput = {
 		...(includeInactive ? {} : { deletedAt: null, isActive: true }),
 		...(query.departmentId ? { departmentId: query.departmentId } : {}),
+		...(query.feeType ? { feeType: query.feeType } : {}),
+		...(query.maxSla ? { slaHours: { lte: Number(query.maxSla) } } : {}),
+		...(search
+			? {
+					OR: [
+						{ name: { contains: search, mode: "insensitive" } },
+						{ description: { contains: search, mode: "insensitive" } },
+						{
+							department: {
+								name: { contains: search, mode: "insensitive" },
+							},
+						},
+					],
+				}
+			: {}),
 	};
+
+	const orderBy: Prisma.CategoryOrderByWithRelationInput =
+		sortBy === "feeAmount"
+			? { feeAmount: { sort: sortOrder, nulls: "last" } }
+			: { [sortBy]: sortOrder };
 
 	const [categories, total] = await Promise.all([
 		prisma.category.findMany({
 			where,
 			skip,
 			take: limit,
-			orderBy: { createdAt: "desc" },
+			orderBy,
 			include: { department: { select: { id: true, name: true } } },
 		}),
 		prisma.category.count({ where }),
@@ -101,12 +136,7 @@ const getAllCategories = async (
 
 	return {
 		data: categories,
-		meta: {
-			page,
-			limit,
-			total,
-			totalPages: Math.ceil(total / limit) || 1,
-		},
+		meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
 	};
 };
 
@@ -183,6 +213,8 @@ const updateCategory = async (
 			where: { id },
 			data: {
 				name: payload.name,
+				description: payload.description,
+				images: payload.images,
 				feeType: payload.feeType,
 				feeAmount: nextFeeAmount,
 				slaHours: payload.slaHours,

@@ -35,6 +35,8 @@ const DEPARTMENTS = [
 type CategorySeed = {
 	department: (typeof DEPARTMENTS)[number]["name"];
 	name: string;
+	description: string;
+	images: string[];
 	feeType: "FREE" | "PAID";
 	feeAmount?: number;
 	slaHours: number;
@@ -44,30 +46,45 @@ const CATEGORIES: CategorySeed[] = [
 	{
 		department: "Roads & Infrastructure",
 		name: "Pothole",
+		description:
+			"Report damaged road surfaces and potholes. A crew inspects the site and repairs it within the stated resolution time.",
+		images: [],
 		feeType: "FREE",
 		slaHours: 72,
 	},
 	{
 		department: "Roads & Infrastructure",
 		name: "Streetlight Outage",
+		description:
+			"Report streetlights that are dark, flickering, or damaged so the roads in your area stay safe at night.",
+		images: [],
 		feeType: "FREE",
 		slaHours: 48,
 	},
 	{
 		department: "Waste Management",
 		name: "Missed Garbage Collection",
+		description:
+			"Tell us when scheduled waste collection was skipped in your street and we will dispatch a collection team.",
+		images: [],
 		feeType: "FREE",
 		slaHours: 24,
 	},
 	{
 		department: "Water Supply",
 		name: "Water Leakage",
+		description:
+			"Report burst pipes and leaks in public water lines to reduce wastage and restore normal supply.",
+		images: [],
 		feeType: "FREE",
 		slaHours: 24,
 	},
 	{
 		department: "Licensing & Permits",
 		name: "Trade Licence Renewal",
+		description:
+			"Renew your annual trade licence online. Pay the fee securely and track the approval until it is issued.",
+		images: [],
 		feeType: "PAID",
 		feeAmount: 1500,
 		slaHours: 168,
@@ -75,6 +92,9 @@ const CATEGORIES: CategorySeed[] = [
 	{
 		department: "Licensing & Permits",
 		name: "Noise Permit",
+		description:
+			"Apply for a temporary permit to use sound equipment at weddings, events, and community gatherings.",
+		images: [],
 		feeType: "PAID",
 		feeAmount: 800,
 		slaHours: 120,
@@ -82,6 +102,9 @@ const CATEGORIES: CategorySeed[] = [
 	{
 		department: "Licensing & Permits",
 		name: "Tree Cutting Permit",
+		description:
+			"Request approval to remove a damaged or dangerous tree safely, with an officer’s review.",
+		images: [],
 		feeType: "PAID",
 		feeAmount: 500,
 		slaHours: 96,

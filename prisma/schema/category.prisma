@@ -2,6 +2,8 @@ model Category {
   id           String   @id @default(uuid())
   departmentId String
   name         String
+  description  String?
+  images       String[] @default([])
   feeType      FeeType
   feeAmount    Decimal? @db.Decimal(10, 2)
   slaHours     Int
@@ -16,5 +18,6 @@ model Category {
 
   @@unique([departmentId, name])
   @@index([isActive])
+  @@index([feeType])
   @@map("categories")
 }
