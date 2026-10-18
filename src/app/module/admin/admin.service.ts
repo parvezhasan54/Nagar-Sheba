@@ -435,19 +435,23 @@ const getAuditLogs = async (query: IAuditLogQuery) => {
 // DASHBOARD STATS
 
 const getDashboardStats = async () => {
-	const [
-		totalUsers,
-		totalCitizens,
-		totalStaff,
-		totalRequests,
-		requestsByStatus,
-		overdueCount,
-		totalRevenue,
-		pendingPayments,
-		avgRating,
-		requestsByDepartment,
-		departments,
-	] = await Promise.all([
+	
+const [
+  totalUsers,
+  totalCitizens,
+  totalStaff,
+  totalRequests,
+  requestsByStatus,
+  overdueCount,
+  totalRevenue,
+  pendingPayments,
+  avgRating,
+  revenueByProvider,
+  ratingGroups,
+  requestsByDepartment,
+  departments,
+] = await Promise.all([
+
 		prisma.user.count({
 			where: { deletedAt: null },
 		}),
@@ -477,16 +481,28 @@ const getDashboardStats = async () => {
 				deletedAt: null,
 			},
 		}),
-		prisma.payment.aggregate({
-			_sum: { amount: true },
-			where: { status: "COMPLETED" },
-		}),
-		prisma.payment.count({
-			where: { status: "PENDING" },
-		}),
-		prisma.feedback.aggregate({
-			_avg: { rating: true },
-		}),
+		
+prisma.payment.aggregate({
+  _sum: { amount: true },
+  where: { status: "COMPLETED" },
+}),
+prisma.payment.count({
+  where: { status: "PENDING" },
+}),
+prisma.feedback.aggregate({
+  _avg: { rating: true },
+  _count: { _all: true },
+}),
+prisma.payment.groupBy({
+  by: ["provider"],
+  where: { status: "COMPLETED" },
+  _sum: { amount: true },
+}),
+prisma.feedback.groupBy({
+  by: ["rating"],
+  _count: { _all: true },
+}),
+
 		prisma.serviceRequest.groupBy({
 			by: ["departmentId"],
 			_count: { _all: true },
@@ -527,13 +543,26 @@ const getDashboardStats = async () => {
 				}))
 				.sort((a, b) => b.total - a.total),
 		},
-		payments: {
-			totalRevenue: totalRevenue._sum.amount ?? 0,
-			pending: pendingPayments,
-		},
-		feedback: {
-			averageRating: avgRating._avg.rating ?? null,
-		},
+		
+payments: {
+  totalRevenue: totalRevenue._sum.amount ?? 0,
+  pending: pendingPayments,
+  byProvider: revenueByProvider.map((r) => ({
+    provider: r.provider,
+    total: r._sum.amount ?? 0,
+  })),
+},
+feedback: {
+  averageRating: avgRating._avg.rating ?? null,
+  total: avgRating._count._all,
+  distribution: Object.fromEntries(
+    [1, 2, 3, 4, 5].map((n) => [
+      String(n),
+      ratingGroups.find((g) => g.rating === n)?._count._all ?? 0,
+    ]),
+  ),
+},
+
 	};
 };
 

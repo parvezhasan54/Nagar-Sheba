@@ -78,82 +78,174 @@ const createCategory = async (
 const ALLOWED_SORT_FIELDS = ["createdAt", "name", "slaHours", "feeAmount"];
 
 const getAllCategories = async (
-	query: ICategoryQuery,
-	requesterRole?: Role,
+  query: ICategoryQuery,
+  requesterRole?: Role,
 ) => {
-	const page = Number(query.page) > 0 ? Number(query.page) : 1;
-	const limit = Math.min(
-		Number(query.limit) > 0 ? Number(query.limit) : 10,
-		100,
-	);
-	const skip = (page - 1) * limit;
+  const page = Number(query.page) > 0 ? Number(query.page) : 1;
+  const limit = Math.min(
+    Number(query.limit) > 0 ? Number(query.limit) : 10,
+    100,
+  );
+  const skip = (page - 1) * limit;
 
-	const includeInactive =
-		requesterRole === Role.ADMIN && !!query.includeInactive;
+  const includeInactive =
+    requesterRole === Role.ADMIN && !!query.includeInactive;
 
-	const sortBy = ALLOWED_SORT_FIELDS.includes(query.sortBy as string)
-		? (query.sortBy as string)
-		: "createdAt";
-	const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+  const sortBy = ALLOWED_SORT_FIELDS.includes(query.sortBy as string)
+    ? (query.sortBy as string)
+    : "createdAt";
+  const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+  const search = query.search?.trim();
 
-	const search = query.search?.trim();
+  // Filter categories by their average rating.
+  let ratedIds: string[] | undefined;
 
-	const where: Prisma.CategoryWhereInput = {
-		...(includeInactive ? {} : { deletedAt: null, isActive: true }),
-		...(query.departmentId ? { departmentId: query.departmentId } : {}),
-		...(query.feeType ? { feeType: query.feeType } : {}),
-		...(query.maxSla ? { slaHours: { lte: Number(query.maxSla) } } : {}),
-		...(search
-			? {
-					OR: [
-						{ name: { contains: search, mode: "insensitive" } },
-						{ description: { contains: search, mode: "insensitive" } },
-						{
-							department: {
-								name: { contains: search, mode: "insensitive" },
-							},
-						},
-					],
-				}
-			: {}),
-	};
+  if (query.minRating && Number(query.minRating) > 0) {
+    const rows = await prisma.$queryRaw<{ categoryId: string }[]>`
+      SELECT sr."categoryId" AS "categoryId"
+      FROM feedbacks f
+      JOIN service_requests sr ON sr.id = f."requestId"
+      GROUP BY sr."categoryId"
+      HAVING AVG(f.rating) >= ${Number(query.minRating)}::float8
+    `;
 
-	const orderBy: Prisma.CategoryOrderByWithRelationInput =
-		sortBy === "feeAmount"
-			? { feeAmount: { sort: sortOrder, nulls: "last" } }
-			: { [sortBy]: sortOrder };
+    ratedIds = rows.map((row) => row.categoryId);
+  }
 
-	const [categories, total] = await Promise.all([
-		prisma.category.findMany({
-			where,
-			skip,
-			take: limit,
-			orderBy,
-			include: { department: { select: { id: true, name: true } } },
-		}),
-		prisma.category.count({ where }),
-	]);
+  // Public users only see active, non-deleted categories.
+  // Admins can optionally filter by category status.
+  const statusWhere: Prisma.CategoryWhereInput = !includeInactive
+    ? { deletedAt: null, isActive: true }
+    : query.status === "active"
+      ? { deletedAt: null, isActive: true }
+      : query.status === "inactive"
+        ? { deletedAt: null, isActive: false }
+        : query.status === "deleted"
+          ? { deletedAt: { not: null } }
+          : {};
 
-	return {
-		data: categories,
-		meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
-	};
+  const where: Prisma.CategoryWhereInput = {
+    ...statusWhere,
+    ...(query.departmentId ? { departmentId: query.departmentId } : {}),
+    ...(query.feeType ? { feeType: query.feeType } : {}),
+    ...(query.maxSla ? { slaHours: { lte: Number(query.maxSla) } } : {}),
+    ...(ratedIds ? { id: { in: ratedIds } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+            {
+              department: {
+                name: { contains: search, mode: "insensitive" },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const orderBy: Prisma.CategoryOrderByWithRelationInput =
+    sortBy === "feeAmount"
+      ? { feeAmount: { sort: sortOrder, nulls: "last" } }
+      : { [sortBy]: sortOrder };
+
+  const [categories, total] = await Promise.all([
+    prisma.category.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+      include: {
+        department: {
+          select: { id: true, name: true },
+        },
+      },
+    }),
+    prisma.category.count({ where }),
+  ]);
+
+  // Fetch rating summaries for the current page only.
+  const ids = categories.map((category) => category.id);
+
+  const stats = ids.length
+    ? await prisma.$queryRaw<
+        { categoryId: string; avg: number; count: bigint }[]
+      >`
+        SELECT
+          sr."categoryId" AS "categoryId",
+          AVG(f.rating)::float8 AS avg,
+          COUNT(*) AS count
+        FROM feedbacks f
+        JOIN service_requests sr ON sr.id = f."requestId"
+        WHERE sr."categoryId" IN (${Prisma.join(ids)})
+        GROUP BY sr."categoryId"
+      `
+    : [];
+
+  const byCategory = new Map(
+    stats.map((stat) => [stat.categoryId, stat]),
+  );
+
+  return {
+    data: categories.map((category) => {
+      const stat = byCategory.get(category.id);
+
+      return {
+        ...category,
+        averageRating: stat ? Math.round(stat.avg * 10) / 10 : null,
+        reviewCount: stat ? Number(stat.count) : 0,
+      };
+    }),
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
 };
+
 
 // GET SINGLE CATEGORY
 
+
 const getSingleCategory = async (id: string) => {
-	const category = await prisma.category.findUnique({
-		where: { id },
-		include: { department: { select: { id: true, name: true } } },
-	});
+  const category = await prisma.category.findUnique({
+    where: { id },
+    include: {
+      department: {
+        select: { id: true, name: true },
+      },
+    },
+  });
 
-	if (!category || category.deletedAt) {
-		throw new AppError(httpStatus.NOT_FOUND, "Category not found");
-	}
+  if (!category || category.deletedAt) {
+    throw new AppError(httpStatus.NOT_FOUND, "Category not found");
+  }
 
-	return category;
+  const stats = await prisma.$queryRaw<
+    { avg: number; count: bigint }[]
+  >`
+    SELECT
+      AVG(f.rating)::float8 AS avg,
+      COUNT(*) AS count
+    FROM feedbacks f
+    JOIN service_requests sr ON sr.id = f."requestId"
+    WHERE sr."categoryId" = ${id}
+  `;
+
+  const stat = stats[0];
+
+  return {
+    ...category,
+    averageRating: stat?.avg != null
+      ? Math.round(stat.avg * 10) / 10
+      : null,
+    reviewCount: stat ? Number(stat.count) : 0,
+  };
 };
+
 
 // UPDATE CATEGORY
 

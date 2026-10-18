@@ -30,4 +30,6 @@ export interface ICategoryQuery {
 	maxSla?: number; // only services resolved within N hours
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";
+	minRating?: number;
+	status?: "active" | "inactive" | "deleted"; // admin only
 }
