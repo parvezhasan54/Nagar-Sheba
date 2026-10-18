@@ -216,5 +216,5 @@ export const RequestController = {
 	reopenRequest,
 	addAttachments,
 	getStaffPerformance,
-	getCitizenSummary
+	getCitizenSummary,
 };

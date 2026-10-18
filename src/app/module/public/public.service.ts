@@ -122,5 +122,3 @@ export const PublicService = {
 	getTestimonials,
 	subscribe,
 };
-
-

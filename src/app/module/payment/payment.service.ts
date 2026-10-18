@@ -21,6 +21,11 @@ const FRONTEND = (config.frontend_url ?? "").replace(/\/$/, "");
 
 const buildTranId = (requestId: string) =>
 	`NS-${requestId.slice(0, 8)}-${Date.now()}`;
+const COMPLETABLE_STATUSES: PaymentStatus[] = [
+	PaymentStatus.PENDING,
+	PaymentStatus.FAILED,
+	PaymentStatus.CANCELLED,
+];
 
 // SSLCOMMERZ
 
@@ -242,24 +247,51 @@ const sendReceiptEmail = async (paymentId: string) => {
 	}
 };
 
+// Statuses a callback may still move to COMPLETED. COMPLETED and REFUNDED are final.
+// FAILED/CANCELLED stay eligible because gateways can confirm after a failure redirect.
+
 const completePayment = async (paymentId: string) => {
-	const payment = await prisma.payment.findUnique({
-		where: { id: paymentId },
-		include: { request: true },
-	});
+	const outcome = await prisma.$transaction(async (tx) => {
+		// Only one concurrent caller can win this conditional update.
+		const claimed = await tx.payment.updateMany({
+			where: { id: paymentId, status: { in: COMPLETABLE_STATUSES } },
+			data: { status: PaymentStatus.COMPLETED, paidAt: new Date() },
+		});
 
-	if (!payment) return;
-	if (payment.status === PaymentStatus.COMPLETED) return;
+		if (claimed.count === 0) return null; // already completed, refunded, or unknown
 
-	if (payment.request.status !== RequestStatus.PENDING_PAYMENT) {
-		await prisma.payment.update({
-			where: { id: payment.id },
+		const payment = await tx.payment.findUniqueOrThrow({
+			where: { id: paymentId },
+			include: { request: true },
+		});
+
+		// Guarded move: if the citizen cancelled in the meantime, count is 0.
+		const moved = await tx.serviceRequest.updateMany({
+			where: { id: payment.requestId, status: RequestStatus.PENDING_PAYMENT },
+			data: { status: RequestStatus.SUBMITTED },
+		});
+
+		if (moved.count === 0) return { payment, late: true };
+
+		await tx.statusHistory.create({
 			data: {
-				status: PaymentStatus.COMPLETED,
-				paidAt: new Date(),
+				requestId: payment.requestId,
+				fromStatus: RequestStatus.PENDING_PAYMENT,
+				toStatus: RequestStatus.SUBMITTED,
+				changedBy: payment.request.citizenId,
+				note: `Payment verified via ${payment.provider}`,
 			},
 		});
 
+		return { payment, late: false };
+	});
+
+	if (!outcome) return;
+
+	const { payment, late } = outcome;
+
+	if (late) {
+		// Payment arrived after the request left PENDING_PAYMENT: refund it, once.
 		try {
 			await refundPaymentForRequest(
 				payment.requestId,
@@ -268,34 +300,8 @@ const completePayment = async (paymentId: string) => {
 		} catch (error) {
 			console.error("Auto-refund of late payment failed:", error);
 		}
-
 		return;
 	}
-
-	await prisma.$transaction([
-		prisma.payment.update({
-			where: { id: payment.id },
-			data: {
-				status: PaymentStatus.COMPLETED,
-				paidAt: new Date(),
-			},
-		}),
-		prisma.serviceRequest.update({
-			where: { id: payment.requestId },
-			data: {
-				status: RequestStatus.SUBMITTED,
-			},
-		}),
-		prisma.statusHistory.create({
-			data: {
-				requestId: payment.requestId,
-				fromStatus: RequestStatus.PENDING_PAYMENT,
-				toStatus: RequestStatus.SUBMITTED,
-				changedBy: payment.request.citizenId,
-				note: `Payment verified via ${payment.provider}`,
-			},
-		}),
-	]);
 
 	NotificationService.notifyUser({
 		userId: payment.request.citizenId,
@@ -305,24 +311,19 @@ const completePayment = async (paymentId: string) => {
 	void sendReceiptEmail(payment.id);
 };
 
+// Conditional on PENDING so a late fail/cancel can never overwrite COMPLETED.
 const failPaymentIfPending = async (paymentId: string) => {
-	const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-	if (payment && payment.status === PaymentStatus.PENDING) {
-		await prisma.payment.update({
-			where: { id: payment.id },
-			data: { status: PaymentStatus.FAILED },
-		});
-	}
+	await prisma.payment.updateMany({
+		where: { id: paymentId, status: PaymentStatus.PENDING },
+		data: { status: PaymentStatus.FAILED },
+	});
 };
 
 const cancelPaymentIfPending = async (paymentId: string) => {
-	const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-	if (payment && payment.status === PaymentStatus.PENDING) {
-		await prisma.payment.update({
-			where: { id: payment.id },
-			data: { status: PaymentStatus.CANCELLED },
-		});
-	}
+	await prisma.payment.updateMany({
+		where: { id: paymentId, status: PaymentStatus.PENDING },
+		data: { status: PaymentStatus.CANCELLED },
+	});
 };
 // SSLCOMMERZ VERIFICATION (IPN + redirect handlers both call this)
 

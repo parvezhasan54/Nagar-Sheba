@@ -37,7 +37,9 @@ const rank = (text: string, catalog: Catalog) => {
 };
 
 // 1) CHAT ASSISTANT
-const chat = async (messages: { role: "user" | "assistant"; content: string }[]) => {
+const chat = async (
+	messages: { role: "user" | "assistant"; content: string }[],
+) => {
 	const catalog = await loadCatalog();
 	const services = catalog
 		.map(
@@ -85,7 +87,8 @@ const suggestCategory = async (text: string) => {
 	const catalog = await loadCatalog();
 	const list = catalog
 		.map(
-			(c) => `${c.id} | ${c.name} | ${c.department.name} | ${c.description ?? ""}`,
+			(c) =>
+				`${c.id} | ${c.name} | ${c.department.name} | ${c.description ?? ""}`,
 		)
 		.join("\n");
 
@@ -133,7 +136,10 @@ const getAdminInsights = async () => {
 	const [recent, departments, totals, overdue, rating, refundFails] =
 		await Promise.all([
 			prisma.serviceRequest.findMany({
-				where: { deletedAt: null, createdAt: { gte: new Date(now - 14 * DAY) } },
+				where: {
+					deletedAt: null,
+					createdAt: { gte: new Date(now - 14 * DAY) },
+				},
 				select: { createdAt: true },
 			}),
 			prisma.department.findMany({
@@ -166,7 +172,9 @@ const getAdminInsights = async () => {
 	const anomalies: Anomaly[] = [];
 
 	// Volume spike: last 24h vs average of the 13 days before
-	const last24 = recent.filter((r) => r.createdAt.getTime() >= now - DAY).length;
+	const last24 = recent.filter(
+		(r) => r.createdAt.getTime() >= now - DAY,
+	).length;
 	const prevAvg = (recent.length - last24) / 13;
 	if (last24 >= 5 && last24 > prevAvg * 2) {
 		anomalies.push({

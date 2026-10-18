@@ -1016,5 +1016,5 @@ export const RequestService = {
 	reopenRequest,
 	addAttachmentsToRequest,
 	getStaffPerformance,
-	getCitizenSummary
+	getCitizenSummary,
 };

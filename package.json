@@ -13,7 +13,8 @@
         "format:check": "npx @biomejs/biome format ./src",
         "format:fix": "npx @biomejs/biome check --write ./src",
         "lint:check": "npx @biomejs/biome lint ./src",
-        "lint:fix": "npx @biomejs/biome check --write ./src"
+        "lint:fix": "npx @biomejs/biome check --write ./src",
+        "typecheck": "tsc --noEmit"
     },
     "keywords": [],
     "author": "",

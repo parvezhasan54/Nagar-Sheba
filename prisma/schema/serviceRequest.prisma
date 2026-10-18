@@ -42,5 +42,9 @@ model ServiceRequest {
   @@index([assignedStaffId])
   @@index([categoryId])
   @@index([isOverdue])
+    @@index([createdAt])
+  @@index([citizenId, createdAt])
+  @@index([departmentId, createdAt])
+  @@index([status, slaDueAt])
   @@map("service_requests")
 }

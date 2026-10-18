@@ -71,8 +71,8 @@ export default {
 		email: process.env.DEMO_ADMIN_EMAIL ?? "demo.admin@nagar-sheba.com",
 		password: process.env.DEMO_ADMIN_PASSWORD ?? "",
 	},
-		ai: {
+	ai: {
 		api_key: process.env.GEMINI_API_KEY ?? "",
-		model: process.env.GEMINI_MODEL ?? "gemini-3.8-flash",
+		model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
 	},
 };
