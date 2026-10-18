@@ -23,6 +23,7 @@ router.post(
 	AiController.suggestCategory,
 );
 
+router.get("/search-suggest", aiLimiter, AiController.searchSuggest);
 router.get("/admin-insights", auth(Role.ADMIN), AiController.getAdminInsights);
 
 export const AiRoutes = router;

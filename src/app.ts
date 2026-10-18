@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import compression from "compression";
 import httpStatus from "http-status";
 import { RedisStore } from "rate-limit-redis";
 
@@ -30,7 +31,7 @@ const app: Application = express();
 app.set("trust proxy", 1);
 
 app.use(helmet());
-
+app.use(compression());
 // Global rate limiter
 app.use(
 	rateLimit({
@@ -56,7 +57,8 @@ app.use(
 );
 
 // Body parsers and cookies
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+app.use(express.json({ limit: "100kb" }));
 app.use(express.json());
 app.use(cookieParser());
 

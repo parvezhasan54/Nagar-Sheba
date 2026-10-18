@@ -34,4 +34,14 @@ const getAdminInsights = catchAsync(async (_req: Request, res: Response) => {
 	});
 });
 
-export const AiController = { chat, suggestCategory, getAdminInsights };
+const searchSuggest = catchAsync(async (req: Request, res: Response) => {
+	const result = await AiService.searchSuggest(String(req.query.q ?? ""));
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Suggestions generated",
+		data: result,
+	});
+});
+
+export const AiController = { chat, suggestCategory, getAdminInsights, searchSuggest };

@@ -412,6 +412,164 @@ const getCategoryReviews = async (
 		})),
 	};
 };
+
+const DAY = 24 * 60 * 60 * 1000;
+const ACTIVE = { deletedAt: null, isActive: true } as const;
+const WITH_DEPT = {
+	department: { select: { id: true, name: true } },
+} as const;
+
+// Same rating fields the explore page returns, so CategoryCard works unchanged.
+const attachRatings = async <T extends { id: string }>(categories: T[]) => {
+	const ids = categories.map((c) => c.id);
+
+	const stats = ids.length
+		? await prisma.$queryRaw<
+				{ categoryId: string; avg: number; count: bigint }[]
+			>`
+        SELECT sr."categoryId" AS "categoryId",
+               AVG(f.rating)::float8 AS avg,
+               COUNT(*) AS count
+        FROM feedbacks f
+        JOIN service_requests sr ON sr.id = f."requestId"
+        WHERE sr."categoryId" IN (${Prisma.join(ids)})
+        GROUP BY sr."categoryId"
+      `
+		: [];
+
+	const byCategory = new Map(stats.map((s) => [s.categoryId, s]));
+
+	return categories.map((c) => {
+		const stat = byCategory.get(c.id);
+		return {
+			...c,
+			averageRating: stat ? Math.round(stat.avg * 10) / 10 : null,
+			reviewCount: stat ? Number(stat.count) : 0,
+		};
+	});
+};
+
+// Most requested services in the last 30 days, skipping `exclude`.
+const rankByPopularity = async (exclude: string[], limit: number) => {
+	const groups = await prisma.serviceRequest.groupBy({
+		by: ["categoryId"],
+		where: {
+			deletedAt: null,
+			createdAt: { gte: new Date(Date.now() - 30 * DAY) },
+			categoryId: { notIn: exclude },
+		},
+		_count: { _all: true },
+		orderBy: { _count: { categoryId: "desc" } },
+		take: limit * 3,
+	});
+
+	const counts = new Map(groups.map((g) => [g.categoryId, g._count._all]));
+
+	const found = await prisma.category.findMany({
+		where: { ...ACTIVE, id: { in: [...counts.keys()] } },
+		include: WITH_DEPT,
+	});
+
+	const ranked = found
+		.sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
+		.slice(0, limit)
+		.map((c) => ({ ...c, requestCount: counts.get(c.id) ?? 0 }));
+
+	// Not enough recent activity: fill with the newest active services.
+	if (ranked.length < limit) {
+		const filler = await prisma.category.findMany({
+			where: {
+				...ACTIVE,
+				id: { notIn: [...exclude, ...ranked.map((r) => r.id)] },
+			},
+			include: WITH_DEPT,
+			orderBy: { createdAt: "desc" },
+			take: limit - ranked.length,
+		});
+		ranked.push(...filler.map((c) => ({ ...c, requestCount: 0 })));
+	}
+
+	return ranked;
+};
+
+const clampLimit = (n: number) => (n > 0 ? Math.min(n, 12) : 4);
+
+const getTrendingCategories = async (limit?: number) => {
+	const size = clampLimit(Number(limit));
+	return attachRatings(await rankByPopularity([], size));
+};
+
+const getRecommendedCategories = async (userId: string, limit?: number) => {
+	const size = clampLimit(Number(limit));
+
+	const used = await prisma.serviceRequest.groupBy({
+		by: ["categoryId"],
+		where: { citizenId: userId, deletedAt: null },
+		_count: { _all: true },
+	});
+
+	// New citizen: nothing to personalize on yet.
+	if (used.length === 0) {
+		return {
+			reason: "Popular with citizens in your city",
+			items: await attachRatings(await rankByPopularity([], size)),
+		};
+	}
+
+	const usedIds = used.map((u) => u.categoryId);
+	const usedCounts = new Map(used.map((u) => [u.categoryId, u._count._all]));
+
+	const usedCategories = await prisma.category.findMany({
+		where: { id: { in: usedIds } },
+		select: { id: true, name: true, departmentId: true },
+	});
+
+	const top = [...usedCategories].sort(
+		(a, b) => (usedCounts.get(b.id) ?? 0) - (usedCounts.get(a.id) ?? 0),
+	)[0];
+	const departmentIds = [...new Set(usedCategories.map((c) => c.departmentId))];
+
+	// Services from the same departments that this citizen hasn't used yet.
+	const related = await prisma.category.findMany({
+		where: {
+			...ACTIVE,
+			id: { notIn: usedIds },
+			departmentId: { in: departmentIds },
+		},
+		include: WITH_DEPT,
+	});
+
+	const popularity = related.length
+		? await prisma.serviceRequest.groupBy({
+				by: ["categoryId"],
+				where: {
+					deletedAt: null,
+					categoryId: { in: related.map((r) => r.id) },
+				},
+				_count: { _all: true },
+			})
+		: [];
+	const popMap = new Map(popularity.map((p) => [p.categoryId, p._count._all]));
+
+	const items = related
+		.map((c) => ({ ...c, requestCount: popMap.get(c.id) ?? 0 }))
+		.sort((a, b) => b.requestCount - a.requestCount)
+		.slice(0, size);
+
+	if (items.length < size) {
+		const more = await rankByPopularity(
+			[...usedIds, ...items.map((i) => i.id)],
+			size - items.length,
+		);
+		items.push(...more);
+	}
+
+	return {
+		reason: `Because you used ${top?.name ?? "our services"}`,
+		items: await attachRatings(items),
+	};
+};
+
 export const CategoryService = {
 	createCategory,
 	getAllCategories,
@@ -419,4 +577,6 @@ export const CategoryService = {
 	updateCategory,
 	deleteCategory,
 	getCategoryReviews,
+	getTrendingCategories,
+	getRecommendedCategories,
 };

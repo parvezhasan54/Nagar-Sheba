@@ -15,5 +15,6 @@ model Payment {
   request ServiceRequest @relation(fields: [requestId], references: [id])
 
   @@index([status])
+  @@index([createdAt])
   @@map("payments")
 }

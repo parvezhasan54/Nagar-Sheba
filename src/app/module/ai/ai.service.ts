@@ -233,4 +233,44 @@ const getAdminInsights = async () => {
 	return { anomalies, summary };
 };
 
-export const AiService = { chat, suggestCategory, getAdminInsights };
+const searchSuggest = async (q: string) => {
+	const catalog = await loadCatalog();
+	const query = q.trim().slice(0, 100);
+	if (query.length < 2) return { suggestions: [], source: "keyword" as const };
+
+	const toItem = (c: Catalog[number]) => ({
+		id: c.id,
+		name: c.name,
+		department: c.department.name,
+		fee: c.feeType === "PAID" ? `BDT ${c.feeAmount}` : "Free",
+	});
+
+	const ranked = rank(query, catalog).filter((r) => r.score > 0);
+	if (ranked.length > 0) {
+		return {
+			suggestions: ranked.slice(0, 5).map((r) => toItem(r.c)),
+			source: "keyword" as const,
+		};
+	}
+
+	// No keyword match (e.g. "lamp near my house is dark"): ask the AI
+	try {
+		const list = catalog.map((c) => `${c.id} | ${c.name}`).join("\n");
+		const raw = await generateText(
+			`Pick up to 3 services that best match the search text. Use ONLY ids from the list.
+Reply as JSON: {"ids": ["<id>", "<id>"]}`,
+			[{ role: "user", text: `Services:\n${list}\n\nSearch: ${query}` }],
+			true,
+		);
+		const ids: string[] = JSON.parse(raw).ids ?? [];
+		const matches = ids
+			.map((id) => catalog.find((c) => c.id === id))
+			.filter((c): c is Catalog[number] => !!c);
+		return { suggestions: matches.map(toItem), source: "ai" as const };
+	} catch {
+		return { suggestions: [], source: "keyword" as const };
+	}
+};
+
+export const AiService = { chat, suggestCategory, getAdminInsights, searchSuggest };
+

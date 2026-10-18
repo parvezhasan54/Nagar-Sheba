@@ -84,13 +84,18 @@ export const auth = (...requiredRoles: Role[]) => {
 			}
 
 			const user = await prisma.user.findUnique({
-				where: { id: userId },
-				include: {
-					citizenProfile: true,
-					staffProfile: true,
-					adminProfile: true,
-				},
-			});
+  where: { id: userId },
+  select: {
+    id: true,
+    email: true,
+    role: true,
+    status: true,
+    deletedAt: true,
+    citizenProfile: { select: { fullName: true } },
+    staffProfile: { select: { fullName: true } },
+    adminProfile: { select: { fullName: true } },
+  },
+});
 
 			if (!user) {
 				throw new AppError(

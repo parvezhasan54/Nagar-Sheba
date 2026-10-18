@@ -123,11 +123,44 @@ const getCategoryReviews = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
+const getTrendingCategories = catchAsync(
+	async (req: Request, res: Response) => {
+		const result = await CategoryService.getTrendingCategories(
+			Number(req.query.limit),
+		);
+
+		sendResponse(res, {
+			statusCode: httpStatus.OK,
+			success: true,
+			message: "Trending categories fetched successfully",
+			data: result,
+		});
+	},
+);
+
+const getRecommendedCategories = catchAsync(
+	async (req: Request, res: Response) => {
+		const user = req.user as IRequestUser;
+		const result = await CategoryService.getRecommendedCategories(
+			user.userId,
+			Number(req.query.limit),
+		);
+
+		sendResponse(res, {
+			statusCode: httpStatus.OK,
+			success: true,
+			message: "Recommended categories fetched successfully",
+			data: result,
+		});
+	},
+);
 export const CategoryController = {
 	createCategory,
 	getAllCategories,
 	getSingleCategory,
 	getCategoryReviews,
+	getTrendingCategories,
+	getRecommendedCategories,
 	updateCategory,
 	deleteCategory,
 };

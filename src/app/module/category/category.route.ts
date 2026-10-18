@@ -9,6 +9,12 @@ const router = Router();
 
 // anyone can show
 router.get("/", optionalAuth, CategoryController.getAllCategories);
+router.get("/trending", CategoryController.getTrendingCategories);
+router.get(
+	"/recommended",
+	auth(Role.CITIZEN),
+	CategoryController.getRecommendedCategories,
+);
 router.get("/:id", optionalAuth, CategoryController.getSingleCategory);
 router.get("/:id/reviews", CategoryController.getCategoryReviews);
 // Admin only Write values

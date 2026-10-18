@@ -9,6 +9,7 @@ model Feedback {
 
   request ServiceRequest @relation(fields: [requestId], references: [id])
   citizen User           @relation(fields: [citizenId], references: [id])
-
+@@index([citizenId])
+@@index([createdAt])
   @@map("feedbacks")
 }
