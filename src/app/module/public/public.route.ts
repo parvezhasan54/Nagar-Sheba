@@ -14,4 +14,13 @@ router.post(
 	PublicController.sendContactMessage,
 );
 
+router.get("/resolved", PublicController.getResolvedIssues);
+router.get("/testimonials", PublicController.getTestimonials);
+router.post(
+	"/subscribe",
+	contactLimiter,
+	validateRequestBody(publicValidationSchemas.SubscribeZodSchema),
+	PublicController.subscribe,
+);
+
 export const PublicRoutes = router;

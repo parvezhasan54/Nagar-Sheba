@@ -7,4 +7,8 @@ const ContactZodSchema = z.object({
 	message: z.string("Message is required").min(20).max(2000),
 });
 
-export const publicValidationSchemas = { ContactZodSchema };
+const SubscribeZodSchema = z.object({
+	email: z.email("Please provide a valid email address."),
+});
+
+export const publicValidationSchemas = { ContactZodSchema, SubscribeZodSchema };

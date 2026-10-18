@@ -23,5 +23,40 @@ const sendContactMessage = catchAsync(async (req: Request, res: Response) => {
 		data: null,
 	});
 });
+const getResolvedIssues = catchAsync(async (_req: Request, res: Response) => {
+	const result = await PublicService.getResolvedIssues();
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Resolved issues fetched successfully",
+		data: result,
+	});
+});
 
-export const PublicController = { getStats, sendContactMessage };
+const getTestimonials = catchAsync(async (_req: Request, res: Response) => {
+	const result = await PublicService.getTestimonials();
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Testimonials fetched successfully",
+		data: result,
+	});
+});
+
+const subscribe = catchAsync(async (req: Request, res: Response) => {
+	await PublicService.subscribe(req.body.email);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Subscribed successfully",
+		data: null,
+	});
+});
+
+export const PublicController = {
+	getStats,
+	sendContactMessage,
+	getResolvedIssues,
+	getTestimonials,
+	subscribe,
+};
