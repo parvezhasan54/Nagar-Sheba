@@ -11,23 +11,32 @@ const STAFF_PASSWORD = config.staff_password;
 
 // Departments
 
+
 const DEPARTMENTS = [
-	{
-		name: "Roads & Infrastructure",
-		description: "Potholes, road damage, streetlights, footpaths",
-	},
-	{
-		name: "Waste Management",
-		description: "Garbage collection, illegal dumping, bin repairs",
-	},
-	{
-		name: "Water Supply",
-		description: "Water leakage, supply interruptions, drainage",
-	},
-	{
-		name: "Licensing & Permits",
-		description: "Trade licences, noise permits, tree-cutting permits",
-	},
+  {
+    name: "Roads & Infrastructure",
+    description: "Potholes, road damage, streetlights, footpaths",
+    imageUrl:
+      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    name: "Waste Management",
+    description: "Garbage collection, illegal dumping, bin repairs",
+    imageUrl:
+      "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    name: "Water Supply",
+    description: "Water leakage, supply interruptions, drainage",
+    imageUrl:
+      "https://images.unsplash.com/photo-1548337138-e87d889cc369?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    name: "Licensing & Permits",
+    description: "Trade licences, noise permits, tree-cutting permits",
+    imageUrl:
+      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=900&q=80",
+  },
 ] as const;
 
 // Categories
@@ -268,18 +277,22 @@ export const seed = async (): Promise<void> => {
 		const departmentIdByName = new Map<string, string>();
 
 		for (const department of DEPARTMENTS) {
-			const record = await tx.department.upsert({
-				where: {
-					name: department.name,
-				},
-				update: {
-					description: department.description,
-				},
-				create: {
-					name: department.name,
-					description: department.description,
-				},
-			});
+			
+const record = await tx.department.upsert({
+  where: {
+    name: department.name,
+  },
+  update: {
+    description: department.description,
+    ...(department.imageUrl ? { imageUrl: department.imageUrl } : {}),
+  },
+  create: {
+    name: department.name,
+    description: department.description,
+    imageUrl: department.imageUrl || null,
+  },
+});
+
 
 			departmentIdByName.set(department.name, record.id);
 		}
