@@ -21,6 +21,7 @@ import { NotificationRoutes } from "./app/module/notification/notification.route
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { PublicRoutes } from "./app/module/public/public.route";
 import { RequestRoutes } from "./app/module/request/request.route";
+import { AiRoutes } from "./app/module/ai/ai.route";
 
 const app: Application = express();
 
@@ -69,7 +70,7 @@ app.use("/api/v1/payments", PaymentRoutes);
 app.use("/api/v1/feedbacks", FeedbackRoutes);
 app.use("/api/v1/notifications", NotificationRoutes);
 app.use("/api/v1/public", PublicRoutes);
-
+app.use("/api/v1/ai", AiRoutes);
 // Internal cron route
 app.get("/api/v1/internal/lifecycle", async (req, res, next) => {
 	if (
