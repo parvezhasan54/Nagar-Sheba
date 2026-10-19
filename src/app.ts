@@ -59,7 +59,6 @@ app.use(
 // Body parsers and cookies
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(express.json({ limit: "100kb" }));
-app.use(express.json());
 app.use(cookieParser());
 
 // API routes

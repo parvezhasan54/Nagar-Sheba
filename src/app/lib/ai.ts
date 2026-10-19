@@ -14,10 +14,14 @@ export const generateText = async (
 	}
 
 	const res = await fetch(
-		`https://generativelanguage.googleapis.com/v1beta/models/${config.ai.model}:generateContent?key=${config.ai.api_key}`,
+		`https://generativelanguage.googleapis.com/v1beta/models/${config.ai.model}:generateContent`,
 		{
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				"x-goog-api-key": config.ai.api_key,
+			},
+			signal: AbortSignal.timeout(15000),
 			body: JSON.stringify({
 				systemInstruction: { parts: [{ text: system }] },
 				contents: messages.map((m) => ({

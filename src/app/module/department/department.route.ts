@@ -19,6 +19,12 @@ router.post(
 	validateRequestBody(departmentValidationSchemas.CreateDepartmentZodSchema),
 	DepartmentController.createDepartment,
 );
+router.patch(
+	"/:id",
+	auth(Role.ADMIN),
+	validateRequestBody(departmentValidationSchemas.UpdateDepartmentZodSchema),
+	DepartmentController.updateDepartment,
+);
 
 router.patch(
 	"/:id/image",

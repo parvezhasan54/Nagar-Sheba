@@ -68,6 +68,7 @@ Residents often report potholes, water leaks, or licence needs through scattered
 | Payments | SSLCommerz (`sslcommerz-lts`), bKash Tokenized Checkout |
 | Jobs | `node-cron` (server) / Vercel Cron (serverless) |
 | Quality | Biome (lint + format) |
+| AI | Google Gemini REST API (`generateContent`) with keyword fallbacks |
 
 ---
 
@@ -176,7 +177,7 @@ erDiagram
 
 ## 📡 API Reference
 
-Base path: **`/api/v1`**. Protected routes accept `Authorization: Bearer <accessToken>` or the `accessToken` httpOnly cookie. **58 endpoints** plus a health check and a cron hook.
+Base path: **`/api/v1`**. Protected routes accept `Authorization: Bearer <accessToken>` or the `accessToken` httpOnly cookie. **70 endpoints** plus a health check and a cron hook.
 
 <details open>
 <summary><b>🔐 Auth</b> <code>/auth</code></summary>
@@ -201,10 +202,16 @@ Base path: **`/api/v1`**. Protected routes accept `Authorization: Bearer <access
 
 | Method | Path | Access |
 |---|---|---|
-| GET | `/` · `/:id` | Public (optional auth; admins may `includeInactive=true`) |
-| POST | `/` | Admin |
-| PATCH | `/:id` | Admin |
-| DELETE | `/:id` | Admin — soft delete (departments blocked while categories/staff/open requests exist) |
+| GET | `/departments` · `/departments/:id` | Public (optional auth; admins may `includeInactive=true`) |
+| POST | `/departments` | Admin (multipart, optional `image`) |
+| PATCH | `/departments/:id` | Admin |
+| PATCH | `/departments/:id/image` | Admin |
+| DELETE | `/departments/:id` | Admin, soft delete |
+| GET | `/categories` · `/categories/:id` | Public |
+| GET | `/categories/trending` | Public, most requested in the last 30 days |
+| GET | `/categories/recommended` | Citizen, personalised |
+| GET | `/categories/:id/reviews` | Public, rating summary + latest reviews |
+| POST · PATCH · DELETE | `/categories` · `/categories/:id` | Admin |
 
 Category list supports `departmentId` filter. Paid categories require `feeAmount`; `slaHours` is 1–720.
 </details>
@@ -224,6 +231,7 @@ Category list supports `departmentId` filter. Paid categories require `feeAmount
 | PATCH | `/:id/reassign` | Admin |
 | POST | `/:id/reopen` | Citizen (owner, ≤ 3 days) |
 | POST | `/:id/attachments` | Authenticated — type enforced by role |
+| GET | `/summary/me` | Citizen, status counts, 6-month trend, total spent |
 </details>
 
 <details>
@@ -256,6 +264,21 @@ Category list supports `departmentId` filter. Paid categories require `feeAmount
 | GET | `/public/stats` | Public |
 | POST | `/public/contact` | Public (rate-limited) |
 | GET | `/internal/lifecycle` | `Authorization: Bearer $CRON_SECRET` |
+| GET | `/public/resolved` · `/public/testimonials` | Public |
+| POST | `/public/subscribe` | Public (rate-limited) |
+</details>
+
+<details>
+<summary><b>🤖 AI</b> <code>/ai</code></summary>
+
+| Method | Path | Access |
+|---|---|---|
+| POST | `/chat` | Public (rate-limited, max 12 messages) |
+| GET | `/search-suggest?q=` | Public (rate-limited) |
+| POST | `/suggest-category` | Citizen |
+| GET | `/admin-insights` | Admin |
+
+Powered by Gemini (`GEMINI_API_KEY`, `GEMINI_MODEL`). Each endpoint falls back to keyword matching or rule-based output if the provider fails.
 </details>
 
 📎 A Postman collection is included in the repo root. Set `baseUrl` to the live API or `http://localhost:5000`.
@@ -344,7 +367,7 @@ Copy `.env.example` — **never commit real values.**
 | Uploads | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` |
 | Payments | `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_IS_LIVE`, `BKASH_BASE_URL`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_APP_KEY`, `BKASH_APP_SECRET` |
 | Cron | `CRON_SECRET` |
-
+| AI | GEMINI_API_KEY, GEMINI_MODEL |
 > `BACKEND_URL` must be **publicly reachable** — SSLCommerz and bKash call it back.
 
 ---
