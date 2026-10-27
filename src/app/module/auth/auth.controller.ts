@@ -14,6 +14,7 @@ import { AuthService } from "./auth.service";
 import { authValidationSchemas } from "./auth.validation";
 
 import config from "../../config";
+import { isDemoEmail } from "../../utils/demo";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -170,10 +171,12 @@ const logoutUser = catchAsync(async (req: Request, res: Response) => {
 		);
 
 		if (verified.success) {
-			await revokeSessions(
-				(verified.data as JwtPayload).userId,
-			);
-		}
+	const data = verified.data as JwtPayload;
+	// Shared demo accounts: only clear this browser's cookies.
+	if (!isDemoEmail(data.email)) {
+		await revokeSessions(data.userId);
+	}
+}
 	}
 
 	res.clearCookie("accessToken", baseCookieOptions);

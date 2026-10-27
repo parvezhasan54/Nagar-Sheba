@@ -494,6 +494,7 @@ const transitionRequestStatus = async (
 		);
 	}
 
+
 	const now = new Date();
 
 	const updateData: Prisma.ServiceRequestUpdateInput = {
@@ -511,7 +512,9 @@ const transitionRequestStatus = async (
 		updateData.resolvedAt = now;
 		updateData.isOverdue = request.slaDueAt ? now > request.slaDueAt : false;
 	}
-
+if (toStatus === RequestStatus.CLOSED) {
+	updateData.closedAt = now;
+}
 	const operations: Prisma.PrismaPromise<any>[] = [
 		prisma.statusHistory.create({
 			data: {
@@ -590,6 +593,12 @@ const reassignRequest = async (
 			`Request is already ${request.status} and can no longer be reassigned`,
 		);
 	}
+	if (request.status === RequestStatus.PENDING_PAYMENT) {
+	throw new AppError(
+		httpStatus.CONFLICT,
+		"A request awaiting payment cannot be reassigned until it is paid",
+	);
+}
 
 	const now = new Date();
 	const previousState = {

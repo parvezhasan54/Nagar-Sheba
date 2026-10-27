@@ -35,6 +35,7 @@ import {
 	IUpdateProfilePayload,
 } from "./auth.interface";
 import { isRevoked, revokeSessions } from "../../utils/session";
+import { DEMO_EMAILS } from "../../utils/demo";
 
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 
@@ -427,10 +428,15 @@ const refreshToken = async (token: string) => {
 
 const googleLogin = async (payload: IGoogleLoginPayload) => {
 	try {
-		const ticket = await googleClient.verifyIdToken({
-			idToken: payload.idToken,
-			audience: config.google_client_id,
-		});
+		let ticket;
+try {
+	ticket = await googleClient.verifyIdToken({
+		idToken: payload.idToken,
+		audience: config.google_client_id,
+	});
+} catch {
+	throw new AppError(httpStatus.UNAUTHORIZED, "Invalid or expired Google ID token");
+}
 
 		const googleIdTokenPayload = ticket.getPayload();
 
@@ -796,14 +802,6 @@ const updateMyProfile = async (
 	return safeUser;
 };
 
-const DEMO_EMAILS = [
-	config.demo_admin.email,
-	config.demo_citizen.email,
-	"staff.roads@nagar-sheba.com",
-	"staff.waste@nagar-sheba.com",
-	"staff.water@nagar-sheba.com",
-	"staff.licensing@nagar-sheba.com",
-].map((email) => email.toLowerCase());
 
 const changePassword = async (
 	user: IRequestUser,
