@@ -75,14 +75,14 @@ const updateUserRole = catchAsync(async (req: Request, res: Response) => {
 
 const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
 	const result = await AdminService.getAuditLogs({
-  page: Number(req.query.page),
-  limit: Number(req.query.limit),
-  action: req.query.action as string | undefined,
-  from: req.query.from as string | undefined,
-  to: req.query.to as string | undefined,
-  entityType: req.query.entityType as string | undefined,
-  actorId: req.query.actorId as string | undefined,
-});
+		page: Number(req.query.page),
+		limit: Number(req.query.limit),
+		action: req.query.action as string | undefined,
+		from: req.query.from as string | undefined,
+		to: req.query.to as string | undefined,
+		entityType: req.query.entityType as string | undefined,
+		actorId: req.query.actorId as string | undefined,
+	});
 
 	sendResponse(res, {
 		statusCode: httpStatus.OK,

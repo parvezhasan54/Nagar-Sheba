@@ -1,4 +1,3 @@
-
 import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
 import { Role } from "../../generated/prisma/enums";
@@ -91,10 +90,7 @@ export const auth = (...requiredRoles: Role[]) => {
 				);
 			}
 
-			if (
-				requiredRoles.length > 0 &&
-				!requiredRoles.includes(role)
-			) {
+			if (requiredRoles.length > 0 && !requiredRoles.includes(role)) {
 				throw new AppError(
 					httpStatus.FORBIDDEN,
 					"You do not have permission to access this resource.",
@@ -156,8 +152,7 @@ export const auth = (...requiredRoles: Role[]) => {
 				user.mustChangePassword &&
 				!TEMP_PASSWORD_ALLOWED.some(
 					(allowedPath) =>
-						path === allowedPath ||
-						path.startsWith(`${allowedPath}/`),
+						path === allowedPath || path.startsWith(`${allowedPath}/`),
 				)
 			) {
 				throw new AppError(
@@ -183,10 +178,10 @@ export const auth = (...requiredRoles: Role[]) => {
 };
 
 export const optionalAuth = catchAsync(async (req, res, next) => {
-  if (req.headers.authorization || req.cookies?.accessToken) {
-    await new Promise<void>((resolve) =>
-      auth()(req, res, () => resolve()), // any auth error => treat as anonymous
-    );
-  }
-  next();
+	if (req.headers.authorization || req.cookies?.accessToken) {
+		await new Promise<void>(
+			(resolve) => auth()(req, res, () => resolve()), // any auth error => treat as anonymous
+		);
+	}
+	next();
 });

@@ -143,9 +143,18 @@ const getAllCategories = async (
 					],
 				}
 			: {}),
-			...(query.maxFee
-  ? { AND: [{ OR: [{ feeAmount: null }, { feeAmount: { lte: Number(query.maxFee) } }] }] }
-  : {}),
+		...(query.maxFee
+			? {
+					AND: [
+						{
+							OR: [
+								{ feeAmount: null },
+								{ feeAmount: { lte: Number(query.maxFee) } },
+							],
+						},
+					],
+				}
+			: {}),
 	};
 
 	const orderBy: Prisma.CategoryOrderByWithRelationInput =
@@ -209,7 +218,7 @@ const getAllCategories = async (
 
 // GET SINGLE CATEGORY
 
-const getSingleCategory = async (id: string,role:string) => {
+const getSingleCategory = async (id: string, role: string) => {
 	const category = await prisma.category.findUnique({
 		where: { id },
 		include: {
@@ -219,8 +228,12 @@ const getSingleCategory = async (id: string,role:string) => {
 		},
 	});
 
-	   if (!category || category.deletedAt || (!category.isActive && role !== Role.ADMIN))
-     throw new AppError(httpStatus.NOT_FOUND, "Category not found");
+	if (
+		!category ||
+		category.deletedAt ||
+		(!category.isActive && role !== Role.ADMIN)
+	)
+		throw new AppError(httpStatus.NOT_FOUND, "Category not found");
 
 	const stats = await prisma.$queryRaw<{ avg: number; count: bigint }[]>`
     SELECT

@@ -16,7 +16,9 @@ import { googleClient } from "../../lib/googleAuth";
 import { sendMail } from "../../lib/mailer";
 import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
+import { DEMO_EMAILS } from "../../utils/demo";
 import { jwtUtils } from "../../utils/jwt";
+import { isRevoked, revokeSessions } from "../../utils/session";
 import {
 	deleteFromCloudinary,
 	uploadBufferToCloudinary,
@@ -34,8 +36,6 @@ import {
 	IUpdateProfileImagePayload,
 	IUpdateProfilePayload,
 } from "./auth.interface";
-import { isRevoked, revokeSessions } from "../../utils/session";
-import { DEMO_EMAILS } from "../../utils/demo";
 
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 
@@ -276,24 +276,15 @@ const loginUser = async (payload: ILoginUserPayload) => {
 
 	// Return the same error for missing users and invalid passwords.
 	if (!user || !user.passwordHash || !isPasswordMatched) {
-		throw new AppError(
-			httpStatus.UNAUTHORIZED,
-			"Invalid email or password",
-		);
+		throw new AppError(httpStatus.UNAUTHORIZED, "Invalid email or password");
 	}
 
 	if (user.deletedAt) {
-		throw new AppError(
-			httpStatus.FORBIDDEN,
-			"Your account has been deleted.",
-		);
+		throw new AppError(httpStatus.FORBIDDEN, "Your account has been deleted.");
 	}
 
 	if (user.status === AccountStatus.BLOCKED) {
-		throw new AppError(
-			httpStatus.FORBIDDEN,
-			"User account is blocked",
-		);
+		throw new AppError(httpStatus.FORBIDDEN, "User account is blocked");
 	}
 
 	const jwtPayload = {
@@ -379,8 +370,11 @@ const refreshToken = async (token: string) => {
 	}
 
 	if (await isRevoked(data.userId, data.iat)) {
-	throw new AppError(httpStatus.UNAUTHORIZED, "Session expired. Please log in again.");
-}
+		throw new AppError(
+			httpStatus.UNAUTHORIZED,
+			"Session expired. Please log in again.",
+		);
+	}
 
 	const user = await prisma.user.findUnique({
 		where: {
@@ -429,14 +423,17 @@ const refreshToken = async (token: string) => {
 const googleLogin = async (payload: IGoogleLoginPayload) => {
 	try {
 		let ticket;
-try {
-	ticket = await googleClient.verifyIdToken({
-		idToken: payload.idToken,
-		audience: config.google_client_id,
-	});
-} catch {
-	throw new AppError(httpStatus.UNAUTHORIZED, "Invalid or expired Google ID token");
-}
+		try {
+			ticket = await googleClient.verifyIdToken({
+				idToken: payload.idToken,
+				audience: config.google_client_id,
+			});
+		} catch {
+			throw new AppError(
+				httpStatus.UNAUTHORIZED,
+				"Invalid or expired Google ID token",
+			);
+		}
 
 		const googleIdTokenPayload = ticket.getPayload();
 
@@ -487,16 +484,10 @@ try {
 			}
 
 			if (user.status === AccountStatus.BLOCKED) {
-				throw new AppError(
-					httpStatus.FORBIDDEN,
-					"User is Blocked",
-				);
+				throw new AppError(httpStatus.FORBIDDEN, "User is Blocked");
 			}
 
-			if (
-				user.googleId &&
-				user.googleId !== googleIdTokenPayload.sub
-			) {
+			if (user.googleId && user.googleId !== googleIdTokenPayload.sub) {
 				throw new AppError(
 					httpStatus.FORBIDDEN,
 					"This email is linked to another Google account",
@@ -564,8 +555,8 @@ try {
 	}
 };
 
-
-const FORGOT_PASSWORD_MESSAGE ="If an account exists for this email, a reset code has been sent.";
+const FORGOT_PASSWORD_MESSAGE =
+	"If an account exists for this email, a reset code has been sent.";
 
 const isResettable = (
 	user: {
@@ -802,7 +793,6 @@ const updateMyProfile = async (
 	return safeUser;
 };
 
-
 const changePassword = async (
 	user: IRequestUser,
 	payload: IChangePasswordPayload,
@@ -850,13 +840,25 @@ const changePassword = async (
 			mustChangePassword: false,
 		},
 	});
-await revokeSessions(dbUser.id);
-const jwtPayload = { userId: dbUser.id, email: dbUser.email, role: dbUser.role };
-return {
-	message: "Password changed successfully.",
-	accessToken: jwtUtils.createToken(jwtPayload, config.jwt_access_secret, config.jwt_access_expires_in as SignOptions),
-	refreshToken: jwtUtils.createToken(jwtPayload, config.jwt_refresh_secret, config.jwt_refresh_expires_in as SignOptions),
-};
+	await revokeSessions(dbUser.id);
+	const jwtPayload = {
+		userId: dbUser.id,
+		email: dbUser.email,
+		role: dbUser.role,
+	};
+	return {
+		message: "Password changed successfully.",
+		accessToken: jwtUtils.createToken(
+			jwtPayload,
+			config.jwt_access_secret,
+			config.jwt_access_expires_in as SignOptions,
+		),
+		refreshToken: jwtUtils.createToken(
+			jwtPayload,
+			config.jwt_refresh_secret,
+			config.jwt_refresh_expires_in as SignOptions,
+		),
+	};
 };
 
 const resendRegistrationOtp = async (rawEmail: string) => {

@@ -272,5 +272,9 @@ Reply as JSON: {"ids": ["<id>", "<id>"]}`,
 	}
 };
 
-export const AiService = { chat, suggestCategory, getAdminInsights, searchSuggest };
-
+export const AiService = {
+	chat,
+	suggestCategory,
+	getAdminInsights,
+	searchSuggest,
+};

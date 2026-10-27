@@ -34,7 +34,7 @@ export const loginLimiter = rateLimit({
 	store: createRedisStore("rl:login:"),
 
 	keyGenerator: (req) =>
-		req.body?.email?.toLowerCase?.() || ipKeyGenerator(req.ip ?? "unknown"),
+		`${ipKeyGenerator(req.ip ?? "unknown")}:${req.body?.email?.toLowerCase?.() ?? ""}`,
 
 	message: {
 		success: false,
@@ -78,7 +78,7 @@ export const aiLimiter = rateLimit({
 	legacyHeaders: false,
 	store: createRedisStore("rl:ai:"),
 	keyGenerator: (req) =>
-	`${ipKeyGenerator(req.ip ?? "unknown")}:${req.body?.email?.toLowerCase?.() ?? ""}`,
+		`${ipKeyGenerator(req.ip ?? "unknown")}:${req.body?.email?.toLowerCase?.() ?? ""}`,
 	message: {
 		success: false,
 		message: "Too many AI requests. Please try again later.",

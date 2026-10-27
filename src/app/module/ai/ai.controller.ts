@@ -44,4 +44,9 @@ const searchSuggest = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
-export const AiController = { chat, suggestCategory, getAdminInsights, searchSuggest };
+export const AiController = {
+	chat,
+	suggestCategory,
+	getAdminInsights,
+	searchSuggest,
+};

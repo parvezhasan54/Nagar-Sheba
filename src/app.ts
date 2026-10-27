@@ -1,9 +1,9 @@
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import compression from "compression";
 import httpStatus from "http-status";
 import { RedisStore } from "rate-limit-redis";
 
@@ -12,7 +12,7 @@ import { runRequestLifecycleJob } from "./app/jobs/requestLifecycle.job";
 import { redisClient } from "./app/lib/redis";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
-
+import { originGuard } from "./app/middleware/originGuard";
 import { AdminRoutes } from "./app/module/admin/admin.route";
 import { AiRoutes } from "./app/module/ai/ai.route";
 import { AuthRoutes } from "./app/module/auth/auth.route";
@@ -23,7 +23,6 @@ import { NotificationRoutes } from "./app/module/notification/notification.route
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { PublicRoutes } from "./app/module/public/public.route";
 import { RequestRoutes } from "./app/module/request/request.route";
-import { originGuard } from "./app/middleware/originGuard";
 
 const app: Application = express();
 

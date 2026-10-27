@@ -46,7 +46,6 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
 				req.query.status === "deleted"
 					? req.query.status
 					: undefined,
-
 		},
 		user?.role,
 	);
@@ -65,7 +64,7 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
 const getSingleCategory = catchAsync(async (req: Request, res: Response) => {
 	const result = await CategoryService.getSingleCategory(
 		req.params.id as string,
-		req.user?.role as string
+		req.user?.role as string,
 	);
 
 	sendResponse(res, {
