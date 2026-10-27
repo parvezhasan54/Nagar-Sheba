@@ -23,6 +23,7 @@ import { NotificationRoutes } from "./app/module/notification/notification.route
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { PublicRoutes } from "./app/module/public/public.route";
 import { RequestRoutes } from "./app/module/request/request.route";
+import { originGuard } from "./app/middleware/originGuard";
 
 const app: Application = express();
 
@@ -60,6 +61,7 @@ app.use(
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
+app.use("/api/v1", originGuard);
 
 // API routes
 app.use("/api/v1/auth", AuthRoutes);

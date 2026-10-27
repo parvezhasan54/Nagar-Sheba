@@ -182,25 +182,11 @@ export const auth = (...requiredRoles: Role[]) => {
 	);
 };
 
-export const optionalAuth = catchAsync(
-	async (req: Request, res: Response, next: NextFunction) => {
-		const hasToken =
-			Boolean(req.headers.authorization) ||
-			Boolean(req.cookies?.accessToken);
-
-		if (hasToken) {
-			await new Promise<void>((resolve, reject) => {
-				auth()(req, res, (error?: unknown) => {
-					if (error) {
-						reject(error);
-						return;
-					}
-
-					resolve();
-				});
-			});
-		}
-
-		next();
-	},
-);
+export const optionalAuth = catchAsync(async (req, res, next) => {
+  if (req.headers.authorization || req.cookies?.accessToken) {
+    await new Promise<void>((resolve) =>
+      auth()(req, res, () => resolve()), // any auth error => treat as anonymous
+    );
+  }
+  next();
+});

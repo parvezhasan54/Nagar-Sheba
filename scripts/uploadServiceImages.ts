@@ -14,4 +14,4 @@ for (const file of fs.readdirSync(dir)) {
 	});
 	out[path.parse(file).name] = res.secure_url;
 }
-console.log(JSON.stringify(out, null, 2));
+// console.log(JSON.stringify(out, null, 2));
