@@ -39,12 +39,14 @@ const getAllCategories = catchAsync(async (req: Request, res: Response) => {
 			sortBy: req.query.sortBy as string | undefined,
 			sortOrder: req.query.sortOrder as "asc" | "desc" | undefined,
 			minRating: req.query.minRating ? Number(req.query.minRating) : undefined,
+			maxFee: req.query.maxFee ? Number(req.query.maxFee) : undefined,
 			status:
 				req.query.status === "active" ||
 				req.query.status === "inactive" ||
 				req.query.status === "deleted"
 					? req.query.status
 					: undefined,
+
 		},
 		user?.role,
 	);

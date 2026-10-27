@@ -143,6 +143,9 @@ const getAllCategories = async (
 					],
 				}
 			: {}),
+			...(query.maxFee
+  ? { AND: [{ OR: [{ feeAmount: null }, { feeAmount: { lte: Number(query.maxFee) } }] }] }
+  : {}),
 	};
 
 	const orderBy: Prisma.CategoryOrderByWithRelationInput =

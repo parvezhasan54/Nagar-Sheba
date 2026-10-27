@@ -77,6 +77,8 @@ const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
 	const result = await AdminService.getAuditLogs({
 		page: Number(req.query.page),
 		limit: Number(req.query.limit),
+		action:req.query.action as string,
+		from:req.query.from as string,
 		entityType: req.query.entityType as string | undefined,
 		actorId: req.query.actorId as string | undefined,
 	});

@@ -27,6 +27,7 @@ export interface ICategoryQuery {
 	includeInactive?: boolean;
 	search?: string;
 	feeType?: TFeeType;
+	maxFee?: number;
 	maxSla?: number; // only services resolved within N hours
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";

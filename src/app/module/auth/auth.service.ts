@@ -34,6 +34,9 @@ import {
 	IUpdateProfileImagePayload,
 	IUpdateProfilePayload,
 } from "./auth.interface";
+import { isRevoked, revokeSessions } from "../../utils/session";
+
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 
 const registerUser = async (payload: IRegisterUserPayload) => {
 	const { fullName, email: rawEmail, password, phone, address } = payload;
@@ -250,16 +253,13 @@ const verifyRegistrationEmail = async (payload: IRegistrationVerifyPayload) => {
 };
 
 // LOGIN USER
+
 const loginUser = async (payload: ILoginUserPayload) => {
+	const email = payload.email.trim().toLowerCase();
 	const { password } = payload;
 
-	const email = payload.email.trim().toLowerCase();
-
 	const user = await prisma.user.findUnique({
-		where: {
-			email,
-		},
-
+		where: { email },
 		include: {
 			citizenProfile: true,
 			staffProfile: true,
@@ -267,32 +267,32 @@ const loginUser = async (payload: ILoginUserPayload) => {
 		},
 	});
 
-	if (!user) {
+	// Always compare passwords to reduce timing differences.
+	const isPasswordMatched = await bcrypt.compare(
+		password,
+		user?.passwordHash ?? DUMMY_HASH,
+	);
+
+	// Return the same error for missing users and invalid passwords.
+	if (!user || !user.passwordHash || !isPasswordMatched) {
 		throw new AppError(
 			httpStatus.UNAUTHORIZED,
-			"User not found. Please log in again.",
+			"Invalid email or password",
 		);
 	}
 
 	if (user.deletedAt) {
-		throw new AppError(httpStatus.FORBIDDEN, "Your account has been deleted.");
-	}
-
-	if (user.status === AccountStatus.BLOCKED) {
-		throw new AppError(httpStatus.FORBIDDEN, "User account is blocked");
-	}
-
-	if (!user.passwordHash) {
 		throw new AppError(
-			httpStatus.UNAUTHORIZED,
-			"Password authentication is not available for this account",
+			httpStatus.FORBIDDEN,
+			"Your account has been deleted.",
 		);
 	}
 
-	const isPasswordMatched = await bcrypt.compare(password, user.passwordHash);
-
-	if (!isPasswordMatched) {
-		throw new AppError(httpStatus.UNAUTHORIZED, "Invalid credentials");
+	if (user.status === AccountStatus.BLOCKED) {
+		throw new AppError(
+			httpStatus.FORBIDDEN,
+			"User account is blocked",
+		);
 	}
 
 	const jwtPayload = {
@@ -377,6 +377,10 @@ const refreshToken = async (token: string) => {
 		);
 	}
 
+	if (await isRevoked(data.userId, data.iat)) {
+	throw new AppError(httpStatus.UNAUTHORIZED, "Session expired. Please log in again.");
+}
+
 	const user = await prisma.user.findUnique({
 		where: {
 			id: data.userId,
@@ -420,16 +424,15 @@ const refreshToken = async (token: string) => {
 };
 
 //GOOGLE lOGIN
-const googleLogin = async (payload: IGoogleLoginPayload) => {
-	let googleIdTokenPayload: TokenPayload | null | undefined = null;
 
+const googleLogin = async (payload: IGoogleLoginPayload) => {
 	try {
 		const ticket = await googleClient.verifyIdToken({
 			idToken: payload.idToken,
 			audience: config.google_client_id,
 		});
 
-		googleIdTokenPayload = ticket.getPayload();
+		const googleIdTokenPayload = ticket.getPayload();
 
 		if (!googleIdTokenPayload) {
 			throw new AppError(
@@ -446,16 +449,30 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 			throw new AppError(httpStatus.BAD_REQUEST, "Name not found");
 		}
 
+		if (!googleIdTokenPayload.email_verified) {
+			throw new AppError(
+				httpStatus.UNAUTHORIZED,
+				"Google email is not verified",
+			);
+		}
+
+		const email = googleIdTokenPayload.email.trim().toLowerCase();
+
 		let user = await prisma.user.findUnique({
-			where: {
-				email: googleIdTokenPayload.email,
-			},
+			where: { email },
 			include: {
 				citizenProfile: true,
 			},
 		});
 
 		if (user) {
+			if (user.deletedAt) {
+				throw new AppError(
+					httpStatus.FORBIDDEN,
+					"Your account has been deleted.",
+				);
+			}
+
 			if (user.role !== Role.CITIZEN) {
 				throw new AppError(
 					httpStatus.FORBIDDEN,
@@ -464,14 +481,25 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 			}
 
 			if (user.status === AccountStatus.BLOCKED) {
-				throw new AppError(httpStatus.FORBIDDEN, "User is Blocked");
+				throw new AppError(
+					httpStatus.FORBIDDEN,
+					"User is Blocked",
+				);
+			}
+
+			if (
+				user.googleId &&
+				user.googleId !== googleIdTokenPayload.sub
+			) {
+				throw new AppError(
+					httpStatus.FORBIDDEN,
+					"This email is linked to another Google account",
+				);
 			}
 
 			if (!user.googleId) {
 				user = await prisma.user.update({
-					where: {
-						email: googleIdTokenPayload.email,
-					},
+					where: { email },
 					data: {
 						googleId: googleIdTokenPayload.sub,
 						isEmailVerified: true,
@@ -484,7 +512,7 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 		} else {
 			user = await prisma.user.create({
 				data: {
-					email: googleIdTokenPayload.email,
+					email,
 					role: Role.CITIZEN,
 					googleId: googleIdTokenPayload.sub,
 					authProvider: AuthProvider.GOOGLE,
@@ -525,14 +553,13 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
 			refreshToken,
 		};
 	} catch (error) {
-		console.log("Google Login Failed:", error);
-
+		console.error("Google Login Failed:", error);
 		throw error;
 	}
 };
 
-const FORGOT_PASSWORD_MESSAGE =
-	"If an account exists for this email, a reset code has been sent.";
+
+const FORGOT_PASSWORD_MESSAGE ="If an account exists for this email, a reset code has been sent.";
 
 const isResettable = (
 	user: {
@@ -628,6 +655,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 			mustChangePassword: false,
 		},
 	});
+	await revokeSessions(existingUser!.id);
 
 	await redisClient.del(key);
 
@@ -824,8 +852,13 @@ const changePassword = async (
 			mustChangePassword: false,
 		},
 	});
-
-	return { message: "Password changed successfully." };
+await revokeSessions(dbUser.id);
+const jwtPayload = { userId: dbUser.id, email: dbUser.email, role: dbUser.role };
+return {
+	message: "Password changed successfully.",
+	accessToken: jwtUtils.createToken(jwtPayload, config.jwt_access_secret, config.jwt_access_expires_in as SignOptions),
+	refreshToken: jwtUtils.createToken(jwtPayload, config.jwt_refresh_secret, config.jwt_refresh_expires_in as SignOptions),
+};
 };
 
 const resendRegistrationOtp = async (rawEmail: string) => {

@@ -808,6 +808,7 @@ const reopenRequest = async (
 };
 
 const MAX_ATTACHMENTS_PER_REQUEST = 5;
+
 const addAttachmentsToRequest = async (
 	requestId: string,
 	actor: IRequestUser,
@@ -823,11 +824,35 @@ const addAttachmentsToRequest = async (
 
 	const request = await prisma.serviceRequest.findUnique({
 		where: { id: requestId },
-		include: { _count: { select: { attachments: true } } },
+		include: {
+			_count: {
+				select: { attachments: true },
+			},
+		},
 	});
 
 	if (!request || request.deletedAt) {
-		throw new AppError(httpStatus.NOT_FOUND, "Service request not found");
+		throw new AppError(
+			httpStatus.NOT_FOUND,
+			"Service request not found",
+		);
+	}
+
+	if (TERMINAL_STATUSES.includes(request.status)) {
+		throw new AppError(
+			httpStatus.CONFLICT,
+			`Attachments cannot be added to a ${request.status} request`,
+		);
+	}
+
+	if (
+		actor.role === Role.STAFF &&
+		request.status === RequestStatus.SUBMITTED
+	) {
+		throw new AppError(
+			httpStatus.CONFLICT,
+			"Resolution proof can only be added once work is assigned",
+		);
 	}
 
 	let resolvedType: AttachmentType;
@@ -840,7 +865,10 @@ const addAttachmentsToRequest = async (
 			);
 		}
 
-		if (payload.type && payload.type !== AttachmentType.EVIDENCE) {
+		if (
+			payload.type &&
+			payload.type !== AttachmentType.EVIDENCE
+		) {
 			throw new AppError(
 				httpStatus.BAD_REQUEST,
 				"A citizen may only attach EVIDENCE files",
@@ -856,7 +884,10 @@ const addAttachmentsToRequest = async (
 			);
 		}
 
-		if (payload.type && payload.type !== AttachmentType.RESOLUTION_PROOF) {
+		if (
+			payload.type &&
+			payload.type !== AttachmentType.RESOLUTION_PROOF
+		) {
 			throw new AppError(
 				httpStatus.BAD_REQUEST,
 				"Staff may only attach RESOLUTION_PROOF files",
@@ -865,12 +896,17 @@ const addAttachmentsToRequest = async (
 
 		resolvedType = AttachmentType.RESOLUTION_PROOF;
 	} else {
-		resolvedType = (payload.type as AttachmentType) ?? AttachmentType.EVIDENCE;
+		resolvedType =
+			(payload.type as AttachmentType) ??
+			AttachmentType.EVIDENCE;
 	}
 
 	const existingCount = request._count.attachments;
 
-	if (existingCount + files.length > MAX_ATTACHMENTS_PER_REQUEST) {
+	if (
+		existingCount + files.length >
+		MAX_ATTACHMENTS_PER_REQUEST
+	) {
 		throw new AppError(
 			httpStatus.BAD_REQUEST,
 			`This request already has ${existingCount} attachment(s); at most ${MAX_ATTACHMENTS_PER_REQUEST} are allowed in total`,
@@ -879,7 +915,10 @@ const addAttachmentsToRequest = async (
 
 	const uploaded = await Promise.all(
 		files.map((file) =>
-			uploadBufferToCloudinary(file.buffer, "nagar-sheba/request-attachments"),
+			uploadBufferToCloudinary(
+				file.buffer,
+				"nagar-sheba/request-attachments",
+			),
 		),
 	);
 
@@ -897,6 +936,7 @@ const addAttachmentsToRequest = async (
 		orderBy: { createdAt: "asc" },
 	});
 };
+
 const getStaffPerformance = async (staffId: string) => {
 	const where = { assignedStaffId: staffId, deletedAt: null };
 

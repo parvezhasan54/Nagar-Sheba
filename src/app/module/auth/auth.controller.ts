@@ -6,6 +6,10 @@ import { sendResponse } from "../../utils/sendResponse";
 import { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
 import { authValidationSchemas } from "./auth.validation";
+import { jwtUtils } from "../../utils/jwt";
+import config from "../../config";
+import { revokeSessions } from "../../utils/session";
+import { JwtPayload } from "jsonwebtoken";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -157,6 +161,11 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
 });
 
 const logoutUser = catchAsync(async (req: Request, res: Response) => {
+	const token = req.cookies?.refreshToken;
+if (token) {
+	const v = jwtUtils.verifyToken(token, config.jwt_refresh_secret);
+	if (v.success) await revokeSessions((v.data as JwtPayload).userId);
+}
 	res.clearCookie("accessToken", baseCookieOptions);
 	res.clearCookie("refreshToken", baseCookieOptions);
 	sendResponse(res, {
@@ -255,7 +264,8 @@ const updateMyProfile = catchAsync(async (req: Request, res: Response) => {
 const changePassword = catchAsync(async (req: Request, res: Response) => {
 	const user = req.user as IRequestUser;
 	const result = await AuthService.changePassword(user, req.body);
-
+res.cookie("accessToken", result.accessToken, accessTokenCookieOptions);
+res.cookie("refreshToken", result.refreshToken, refreshTokenCookieOptions);
 	sendResponse(res, {
 		statusCode: httpStatus.OK,
 		success: true,

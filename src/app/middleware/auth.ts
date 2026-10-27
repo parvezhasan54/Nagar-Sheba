@@ -1,3 +1,4 @@
+
 import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
 import { Role } from "../../generated/prisma/enums";
@@ -6,6 +7,7 @@ import { AppError } from "../errors/AppError";
 import { prisma } from "../lib/prisma";
 import { catchAsync } from "../utils/catchAsync";
 import { jwtUtils } from "../utils/jwt";
+import { isRevoked } from "../utils/session";
 
 declare global {
 	namespace Express {
@@ -24,13 +26,20 @@ type TAccessTokenPayload = {
 	userId: string;
 	email: string;
 	role: Role;
+	iat?: number;
 };
+
+const TEMP_PASSWORD_ALLOWED = [
+	"/api/v1/auth/me",
+	"/api/v1/auth/change-password",
+	"/api/v1/auth/logout",
+	"/api/v1/notifications",
+];
 
 export const auth = (...requiredRoles: Role[]) => {
 	return catchAsync(
 		async (req: Request, _res: Response, next: NextFunction) => {
 			const authHeader = req.headers.authorization;
-
 			let token: string | undefined;
 
 			if (authHeader) {
@@ -66,7 +75,6 @@ export const auth = (...requiredRoles: Role[]) => {
 			}
 
 			const payload = verifiedToken.data as TAccessTokenPayload;
-
 			const { userId, email, role } = payload;
 
 			if (!userId || !email || !role) {
@@ -76,7 +84,17 @@ export const auth = (...requiredRoles: Role[]) => {
 				);
 			}
 
-			if (requiredRoles.length > 0 && !requiredRoles.includes(role)) {
+			if (await isRevoked(userId, payload.iat)) {
+				throw new AppError(
+					httpStatus.UNAUTHORIZED,
+					"Session expired. Please log in again.",
+				);
+			}
+
+			if (
+				requiredRoles.length > 0 &&
+				!requiredRoles.includes(role)
+			) {
 				throw new AppError(
 					httpStatus.FORBIDDEN,
 					"You do not have permission to access this resource.",
@@ -84,18 +102,25 @@ export const auth = (...requiredRoles: Role[]) => {
 			}
 
 			const user = await prisma.user.findUnique({
-  where: { id: userId },
-  select: {
-    id: true,
-    email: true,
-    role: true,
-    status: true,
-    deletedAt: true,
-    citizenProfile: { select: { fullName: true } },
-    staffProfile: { select: { fullName: true } },
-    adminProfile: { select: { fullName: true } },
-  },
-});
+				where: { id: userId },
+				select: {
+					id: true,
+					email: true,
+					role: true,
+					status: true,
+					deletedAt: true,
+					mustChangePassword: true,
+					citizenProfile: {
+						select: { fullName: true },
+					},
+					staffProfile: {
+						select: { fullName: true },
+					},
+					adminProfile: {
+						select: { fullName: true },
+					},
+				},
+			});
 
 			if (!user) {
 				throw new AppError(
@@ -125,6 +150,22 @@ export const auth = (...requiredRoles: Role[]) => {
 				);
 			}
 
+			const path = req.originalUrl.split("?")[0];
+
+			if (
+				user.mustChangePassword &&
+				!TEMP_PASSWORD_ALLOWED.some(
+					(allowedPath) =>
+						path === allowedPath ||
+						path.startsWith(`${allowedPath}/`),
+				)
+			) {
+				throw new AppError(
+					httpStatus.FORBIDDEN,
+					"Change your temporary password before continuing.",
+				);
+			}
+
 			req.user = {
 				name:
 					user.citizenProfile?.fullName ??
@@ -143,12 +184,23 @@ export const auth = (...requiredRoles: Role[]) => {
 
 export const optionalAuth = catchAsync(
 	async (req: Request, res: Response, next: NextFunction) => {
-		const hasToken = req.headers.authorization || req.cookies?.accessToken;
+		const hasToken =
+			Boolean(req.headers.authorization) ||
+			Boolean(req.cookies?.accessToken);
+
 		if (hasToken) {
-			await new Promise<void>((resolve) => {
-				auth()(req, res, () => resolve());
+			await new Promise<void>((resolve, reject) => {
+				auth()(req, res, (error?: unknown) => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
 			});
 		}
+
 		next();
 	},
 );

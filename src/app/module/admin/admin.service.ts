@@ -411,10 +411,16 @@ const getAuditLogs = async (query: IAuditLogQuery) => {
 	const skip = (page - 1) * limit;
 
 	const where = {
-		...(query.entityType ? { entityType: query.entityType } : {}),
-		...(query.actorId ? { actorId: query.actorId } : {}),
-	};
-
+  ...(query.entityType ? { entityType: query.entityType } : {}),
+  ...(query.actorId ? { actorId: query.actorId } : {}),
+  ...(query.action ? { action: query.action } : {}),
+  ...(query.from || query.to
+    ? { createdAt: {
+        ...(query.from ? { gte: new Date(query.from) } : {}),
+        ...(query.to ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}),
+      } }
+    : {}),
+};
 	const [items, total] = await Promise.all([
 		prisma.auditLog.findMany({
 			where,
@@ -435,132 +441,152 @@ const getAuditLogs = async (query: IAuditLogQuery) => {
 // DASHBOARD STATS
 
 const getDashboardStats = async () => {
-	const [
-		totalUsers,
-		totalCitizens,
-		totalStaff,
-		totalRequests,
-		requestsByStatus,
-		overdueCount,
-		totalRevenue,
-		pendingPayments,
-		avgRating,
-		revenueByProvider,
-		ratingGroups,
-		requestsByDepartment,
-		departments,
-	] = await Promise.all([
-		prisma.user.count({
-			where: { deletedAt: null },
-		}),
-		prisma.user.count({
-			where: {
-				role: Role.CITIZEN,
-				deletedAt: null,
-			},
-		}),
-		prisma.user.count({
-			where: {
-				role: Role.STAFF,
-				deletedAt: null,
-			},
-		}),
-		prisma.serviceRequest.count({
-			where: { deletedAt: null },
-		}),
-		prisma.serviceRequest.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-			where: { deletedAt: null },
-		}),
-		prisma.serviceRequest.count({
-			where: {
-				isOverdue: true,
-				deletedAt: null,
-			},
-		}),
+  const [
+    totalUsers,
+    totalCitizens,
+    totalStaff,
+    totalRequests,
+    requestsByStatus,
+    overdueCount,
+    totalRevenue,
+    pendingPayments,
+    avgRating,
+    revenueByProvider,
+    ratingGroups,
+    requestsByDepartment,
+    departments,
+    requestsPerDay,
+  ] = await Promise.all([
+    prisma.user.count({
+      where: { deletedAt: null },
+    }),
+    prisma.user.count({
+      where: {
+        role: Role.CITIZEN,
+        deletedAt: null,
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: Role.STAFF,
+        deletedAt: null,
+      },
+    }),
+    prisma.serviceRequest.count({
+      where: { deletedAt: null },
+    }),
+    prisma.serviceRequest.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+      where: { deletedAt: null },
+    }),
+    prisma.serviceRequest.count({
+      where: {
+        isOverdue: true,
+        deletedAt: null,
+      },
+    }),
+    prisma.payment.aggregate({
+      _sum: { amount: true },
+      where: { status: "COMPLETED" },
+    }),
+    prisma.payment.count({
+      where: { status: "PENDING" },
+    }),
+    prisma.feedback.aggregate({
+      _avg: { rating: true },
+      _count: { _all: true },
+    }),
+    prisma.payment.groupBy({
+      by: ["provider"],
+      where: { status: "COMPLETED" },
+      _sum: { amount: true },
+    }),
+    prisma.feedback.groupBy({
+      by: ["rating"],
+      _count: { _all: true },
+    }),
+    prisma.serviceRequest.groupBy({
+      by: ["departmentId"],
+      _count: { _all: true },
+      where: { deletedAt: null },
+    }),
+    prisma.department.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+    prisma.$queryRaw<{ day: Date; total: bigint }[]>`
+      SELECT date_trunc('day', "createdAt") AS day, COUNT(*) AS total
+      FROM service_requests
+      WHERE "deletedAt" IS NULL
+        AND "createdAt" >= ${new Date(Date.now() - 29 * 86_400_000)}
+      GROUP BY 1
+      ORDER BY 1
+    `,
+  ]);
 
-		prisma.payment.aggregate({
-			_sum: { amount: true },
-			where: { status: "COMPLETED" },
-		}),
-		prisma.payment.count({
-			where: { status: "PENDING" },
-		}),
-		prisma.feedback.aggregate({
-			_avg: { rating: true },
-			_count: { _all: true },
-		}),
-		prisma.payment.groupBy({
-			by: ["provider"],
-			where: { status: "COMPLETED" },
-			_sum: { amount: true },
-		}),
-		prisma.feedback.groupBy({
-			by: ["rating"],
-			_count: { _all: true },
-		}),
+  const byDay = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(Date.now() - (29 - i) * 86_400_000);
+    const key = d.toISOString().slice(0, 10);
+    const row = requestsPerDay.find(
+      (r) => r.day.toISOString().slice(0, 10) === key,
+    );
 
-		prisma.serviceRequest.groupBy({
-			by: ["departmentId"],
-			_count: { _all: true },
-			where: { deletedAt: null },
-		}),
-		prisma.department.findMany({
-			where: { deletedAt: null },
-			select: {
-				id: true,
-				name: true,
-			},
-		}),
-	]);
+    return {
+      date: key,
+      total: row ? Number(row.total) : 0,
+    };
+  });
 
-	return {
-		users: {
-			total: totalUsers,
-			citizens: totalCitizens,
-			staff: totalStaff,
-		},
-		requests: {
-			total: totalRequests,
-			overdue: overdueCount,
-			byStatus: requestsByStatus.reduce(
-				(acc, row) => {
-					acc[row.status as RequestStatus] = row._count._all;
-					return acc;
-				},
-				{} as Record<string, number>,
-			),
-			byDepartment: departments
-				.map((d) => ({
-					departmentId: d.id,
-					name: d.name,
-					total:
-						requestsByDepartment.find((r) => r.departmentId === d.id)?._count
-							._all ?? 0,
-				}))
-				.sort((a, b) => b.total - a.total),
-		},
-
-		payments: {
-			totalRevenue: totalRevenue._sum.amount ?? 0,
-			pending: pendingPayments,
-			byProvider: revenueByProvider.map((r) => ({
-				provider: r.provider,
-				total: r._sum.amount ?? 0,
-			})),
-		},
-		feedback: {
-			averageRating: avgRating._avg.rating ?? null,
-			total: avgRating._count._all,
-			distribution: Object.fromEntries(
-				[1, 2, 3, 4, 5].map((n) => [
-					String(n),
-					ratingGroups.find((g) => g.rating === n)?._count._all ?? 0,
-				]),
-			),
-		},
-	};
+  return {
+    users: {
+      total: totalUsers,
+      citizens: totalCitizens,
+      staff: totalStaff,
+    },
+    requests: {
+      total: totalRequests,
+      overdue: overdueCount,
+      byStatus: requestsByStatus.reduce(
+        (acc, row) => {
+          acc[row.status as RequestStatus] = row._count._all;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+      byDepartment: departments
+        .map((d) => ({
+          departmentId: d.id,
+          name: d.name,
+          total:
+            requestsByDepartment.find((r) => r.departmentId === d.id)?._count
+              ._all ?? 0,
+        }))
+        .sort((a, b) => b.total - a.total),
+      byDay,
+    },
+    payments: {
+      totalRevenue: totalRevenue._sum.amount ?? 0,
+      pending: pendingPayments,
+      byProvider: revenueByProvider.map((r) => ({
+        provider: r.provider,
+        total: r._sum.amount ?? 0,
+      })),
+    },
+    feedback: {
+      averageRating: avgRating._avg.rating ?? null,
+      total: avgRating._count._all,
+      distribution: Object.fromEntries(
+        [1, 2, 3, 4, 5].map((n) => [
+          String(n),
+          ratingGroups.find((g) => g.rating === n)?._count._all ?? 0,
+        ]),
+      ),
+    },
+  };
 };
 
 export const AdminService = {
