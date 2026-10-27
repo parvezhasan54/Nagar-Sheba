@@ -35,6 +35,7 @@ router.post(
 
 router.post(
 	"/google-login",
+	loginLimiter,
 	validateRequestBody(authValidationSchemas.GoogleLoginZodSchema),
 	AuthController.googleLogin,
 );
