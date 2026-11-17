@@ -17,28 +17,20 @@ const runLifecycleJobSafely = async () => {
 
 const main = async () => {
   try {
-    // 1. Connect to PostgreSQL
     await prisma.$connect();
     console.log("Connected to the database successfully.");
 
-    // 2. Start Express without waiting for Redis
+    // Redis is required by the application.
+    await redisClient.connect();
+    console.log("Connected to Redis successfully.");
+
+    // Import app only after Redis is connected.
     const { default: app } = await import("./app");
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
 
-    // 3. Connect to Redis independently
-    redisClient
-      .connect()
-      .then(() => {
-        console.log("Connected to Redis successfully.");
-      })
-      .catch((error) => {
-        console.error("Redis connection failed:", error.message);
-      });
-
-    // 4. Start background jobs
     void runLifecycleJobSafely();
 
     cron.schedule("*/15 * * * *", () => {

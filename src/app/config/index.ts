@@ -20,12 +20,11 @@ export default {
 		password: process.env.ADMIN_PASSWORD!,
 	},
 	redis: {
-		username: process.env.REDIS_USERNAME!,
-		password: process.env.REDIS_PASSWORD!,
-		host: process.env.REDIS_HOST!,
-		port: Number(process.env.REDIS_PORT),
-		url: process.env.REDIS_URL!,
-	},
+  host: process.env.REDIS_HOST!,
+  port: Number(process.env.REDIS_PORT),
+  username: process.env.REDIS_USERNAME!,
+  password: process.env.REDIS_PASSWORD!,
+},
 	staff_password: process.env.STAFF_PASSWORD!,
 	// smtp: {
 	// 	user: process.env.SMTP_USER!,

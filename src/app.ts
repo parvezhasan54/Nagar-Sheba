@@ -39,6 +39,7 @@ app.use(
 		max: 1500,
 		standardHeaders: true,
 		legacyHeaders: false,
+		passOnStoreError: true, // fail open if Redis is down
 		skip: (req: Request) =>
 			req.path === "/api/v1/auth/me" || req.path === "/auth/me",
 		store: new RedisStore({

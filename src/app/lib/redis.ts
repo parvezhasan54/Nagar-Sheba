@@ -1,20 +1,36 @@
+
 import { createClient } from "redis";
 import config from "../config";
 
 export const redisClient = createClient({
-	socket: {
-		host: config.redis.host,
-		port: config.redis.port,
-		reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
-	},
-	username: config.redis.username,
-	password: config.redis.password,
+  username: config.redis.username,
+  password: config.redis.password,
+  socket: {
+    host: config.redis.host,
+    port: config.redis.port,
+
+    reconnectStrategy: (retries) => {
+      if (retries > 10) {
+        return new Error("Redis reconnect limit reached");
+      }
+
+      return Math.min(retries * 200, 3000);
+    },
+  },
 });
 
 redisClient.on("error", (err) => {
-	console.error("Redis Client Error:", err.message);
+  console.error("Redis Client Error:", err.message);
+});
+
+redisClient.on("connect", () => {
+  console.log("Connecting to Redis...");
 });
 
 redisClient.on("ready", () => {
-	console.log("Redis connected successfully!");
+  console.log("Redis connected successfully!");
+});
+
+redisClient.on("reconnecting", () => {
+  console.log("Redis reconnecting...");
 });
