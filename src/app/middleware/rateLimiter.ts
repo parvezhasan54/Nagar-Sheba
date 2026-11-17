@@ -28,6 +28,7 @@ export const otpLimiter = rateLimit({
 export const loginLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,
 	max: 10,
+	passOnStoreError: true,
 	skipSuccessfulRequests: true,
 	standardHeaders: true,
 	legacyHeaders: false,
